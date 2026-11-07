@@ -540,6 +540,11 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sv{position:fixed;inset:0;z-index:90;background:#000;display:flex;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;animation:sv-in .22s ease-out}
 @keyframes sv-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
 .sv-in{position:relative;width:100%;max-width:520px;height:100%;display:flex;flex-direction:column}
+/* スワイプで人を切りかえた時の動き */
+.sv-in.sl-next{animation:sv-sl-next .22s ease-out}
+.sv-in.sl-prev{animation:sv-sl-prev .22s ease-out}
+@keyframes sv-sl-next{from{transform:translateX(70px);opacity:.3}to{transform:none;opacity:1}}
+@keyframes sv-sl-prev{from{transform:translateX(-70px);opacity:.3}to{transform:none;opacity:1}}
 .sv-media{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:0 0 16px 16px}
 .sv-media>img{max-width:100%;max-height:100%;object-fit:contain;pointer-events:none}
 .sv-media .sv-card{height:100%}
@@ -2250,7 +2255,18 @@ document.addEventListener('click', e=>{
   if (d.act==='logout'){ sessClear(); appBadge(0); S.scope = null; HIST.length = 0; lastView = null; closeSheet(); S.me=null; S.screen='login'; S.loginStep=0; render(); window.scrollTo(0,0); return; }
   if (d.role){ roleSheet(d.role); return; }
   if (d.pman){ const p = E(d.pman); sheet(`${head(esc(p.name)+'さん')}<p style="margin:0;color:var(--ink3)">${esc(roleText(p))}・${p.reg?'登録済み':'未登録'}${isBlocked(p)?'・ログイン不可':''}</p>
-      <div class="btns"><button class="btn ghost" data-role="${p.id}">役職を変える</button>${p.reg?`<button class="btn ghost" data-reset="${p.id}">パスワードをリセット</button>`:''}</div>`); return; }
+      <div class="btns"><button class="btn ghost" data-role="${p.id}">役職を変える</button>${p.reg?`<button class="btn ghost" data-reset="${p.id}">パスワードをリセット</button>`:''}</div>
+      ${meIsExec() && p.id!==S.me ? `<div class="btns"><button class="btn red" data-askdel="${p.id}">この人を削除する</button></div>` : ''}`); return; }
+  /* 担当者の削除（退職など）：役員だけ。押すと確認を出し、「削除する」で消す */
+  if (d.askdel){ if (!meIsExec() || d.askdel===S.me) return; const p = E(d.askdel), open = TASKS.filter(t=>t.taker===p.id && t.status!=='done').length;
+    sheet(`${head('本当に削除しますか？')}<div class="warn-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><p><b>${esc(p.name)}さん</b>を担当者から削除します。ログインできなくなり、事業・エリアの一覧からも消えます。<br>${open ? `いま受けているタスク <b>${open}件</b> は「担当なし」にもどします。` : ''}終わったタスクやコメントの名前はそのまま残ります。<br><b>元には戻せません。</b>退職などで使わなくなった人にだけ使ってください。</p></div>
+      <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-dodel="${p.id}">削除する</button></div>`); return; }
+  if (d.dodel){ if (!meIsExec() || d.dodel===S.me) return; const pid = d.dodel, p = E(pid); if (!p) return;
+    if (!HIDEP.includes(pid)) HIDEP.push(pid); saveAdded();
+    UNITS.forEach(u=>{ if (unitMem(u.id).includes(pid)) UMEM[u.id] = unitMem(u.id).filter(x=>x!==pid); });
+    AREAS.forEach(a=>{ if ((UMEM[a.key] || []).includes(pid)) UMEM[a.key] = UMEM[a.key].filter(x=>x!==pid); }); saveUnits();
+    let ch = false; TASKS.forEach(t=>{ if (t.taker===pid && t.status!=='done'){ t.taker = null; delete t.takenAt; delete t.req; ch = true; } }); if (ch) save();
+    refreshExecs(); closeSheet(); render(); toast(`${p.name}さんを削除しました`); return; }
   if (d.askblock){ if (!meIsExec()) return; const p = E(d.askblock);
     sheet(`${head('ログインできないようにしますか？')}<div class="warn-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><p><b>${esc(p.name)}さん</b>は、すぐにログインできなくなります。いま使っている場合も、次の操作でログイン画面に戻ります。<br>退職などで使わなくなった人にだけ使ってください。あとで「許可に戻す」で元に戻せます。</p></div>
       <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-doblock="${p.id}">不可にする</button></div>`); return; }
@@ -2603,8 +2619,12 @@ let STCM; try { STCM = JSON.parse(localStorage.getItem(SCKEY)) || []; } catch(e)
 const stCmOf = sid => STCM.filter(c=>c && c.sid===sid).sort((a,b)=>a.at-b.at);
 function stCmAdd(sid, text){ const c = {id:'c'+Date.now()+Math.floor(Math.random()*1000), sid, by:S.me, at:Date.now(), text};
   STCM.push(c); try { localStorage.setItem(SCKEY, JSON.stringify(STCM)); } catch(e){} if (DBX) dbWrite('storycm/'+c.id, ()=>DBX.doc('storycm/'+c.id).set(c)); }
-function stDelete(id){ STORIES = STORIES.filter(x=>x.id!==id); saveStLocal(); if (DBX) dbWrite('stories/'+id, ()=>DBX.doc('stories/'+id).delete()); }
-/* 見る画面：上に人ごとのバー。左を押すと前、右を押すと次、長押しで止まる。5秒で次へ。最後まで見ると閉じる */
+/* ストーリーを削除：本体だけでなく、そのストーリーへのコメントも共有の置き場からまとめて消す（跡を残さない） */
+function stDelete(id){ STORIES = STORIES.filter(x=>x.id!==id); saveStLocal(); if (DBX) dbWrite('stories/'+id, ()=>DBX.doc('stories/'+id).delete());
+  const cms = STCM.filter(c=>c && c.sid===id).map(c=>c.id); STCM = STCM.filter(c=>!(c && c.sid===id)); try { localStorage.setItem(SCKEY, JSON.stringify(STCM)); } catch(e){}
+  if (DBX) cms.forEach(cid=>dbWrite('storycm/'+cid, ()=>DBX.doc('storycm/'+cid).delete())); }
+/* 見る画面：上に人ごとのバー。左を押すと前、右を押すと次、長押しで止まる。5秒で次へ。最後まで見ると閉じる
+   左にスワイプで次の人（ホーム上の丸い並びの右どなり）、右にスワイプで前の人へ */
 /* ストーリーのチャット（全員が見られる・古い順で、新しいものが下） */
 let svRefresh = null;
 const chatHtml = sid => { const cs = stCmOf(sid); return cs.length ? cs.map(c=>{ const e = E(c.by); return e ? `<div class="sv-m">${av(e,'s28')}<p><b>${esc(e.name)}</b>${esc(c.text)}</p></div>` : ''; }).join('') : '<p class="sv-none">まだコメントはありません</p>'; };
@@ -2613,23 +2633,31 @@ function stOpen(pid){
   let pi = Math.max(0, q.indexOf(pid)); if (!q.includes(pid)) q.splice(0, q.length, pid);
   let list = stOfP(q[pi]), si = Math.max(0, list.findIndex(x=>!STSEEN[x.id]));
   const ov = document.createElement('div'); ov.className = 'sv'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true'); document.body.appendChild(ov); document.body.style.overflow = 'hidden';
-  let down = 0, held = false;
+  let down = 0, held = false, sx = 0, sy = 0;
   const close = () => { ov.remove(); document.removeEventListener('keydown', key); if (!document.getElementById('scrim')) document.body.style.overflow = ''; render(); };
   const go = d => { si += d;
     if (si < 0){ if (pi > 0){ pi--; list = stOfP(q[pi]); si = list.length-1; } else si = 0; }
     else if (si >= list.length){ pi++; if (pi >= q.length) return close(); list = stOfP(q[pi]); si = 0; }
     show(); };
-  const show = () => { const x = list[si]; if (!x) return close(); const p = E(x.by); stMarkSeen(x.id);
+  /* 人ごとに飛ばす：次の人はまだ見ていないものから。最後の人の先は閉じる。最初の人より前はその人の1枚目 */
+  const goP = d => { const np = pi + d; if (np >= q.length) return close();
+    if (np < 0){ si = 0; show('prev'); return; }
+    pi = np; list = stOfP(q[pi]); si = Math.max(0, list.findIndex(x=>!STSEEN[x.id])); show(d > 0 ? 'next' : 'prev'); };
+  const show = dir => { const x = list[si]; if (!x) return close(); const p = E(x.by); stMarkSeen(x.id);
     ov.innerHTML = `<div class="sv-in"><div class="sv-bars">${list.map((y,i)=>`<i class="${i<si?'on':''}"><b class="${i===si?'run':''}" style="animation-duration:${ST_SEC}s"></b></i>`).join('')}</div>
       <div class="sv-h">${av(p,'s32')}<b>${esc(p.id===S.me?'あなた':p.name)}</b><small>${ago(x.at)}</small><span class="sp"></span>${x.by===S.me?`<button class="sv-del" aria-label="このストーリーを削除">削除</button>`:''}<button class="sv-x" aria-label="閉じる">${ic('x')}</button></div>
       <div class="sv-media">${x.img ? `<img src="${x.img}" alt="${esc(p.name)}のストーリー">${x.txt?`<p class="sv-cap">${esc(x.txt)}</p>`:''}` : `<div class="sv-card"><p>${esc(x.txt)}</p></div>`}</div>
       <div class="sv-chat" aria-live="polite">${chatHtml(x.id)}</div>
       <div class="sv-foot"><input class="sv-inp" type="text" maxlength="200" enterkeyhint="send" placeholder="${x.by===S.me ? 'コメントを書く…' : esc(nick(p))+'さんにコメント…'}" aria-label="コメント"><button class="sv-send" aria-label="送信">${ic('send')}</button></div></div>`;
-    ov.querySelector('.run').addEventListener('animationend', ()=>go(1)); const ch = ov.querySelector('.sv-chat'); ch.scrollTop = ch.scrollHeight; };
+    ov.querySelector('.run').addEventListener('animationend', ()=>go(1)); const ch = ov.querySelector('.sv-chat'); ch.scrollTop = ch.scrollHeight;
+    if (dir) ov.querySelector('.sv-in').classList.add(dir==='next' ? 'sl-next' : 'sl-prev'); };
   /* ほかの人のコメントが届いたら、チャットを描き直す */
   svRefresh = () => { if (!ov.isConnected){ svRefresh = null; return; } const ch = ov.querySelector('.sv-chat'), x = list[si]; if (!ch || !x) return; const end = ch.scrollTop + ch.clientHeight >= ch.scrollHeight - 8; ch.innerHTML = chatHtml(x.id); if (end) ch.scrollTop = ch.scrollHeight; };
-  ov.addEventListener('pointerdown', e=>{ if (e.target.closest('.sv-chat')){ ov.classList.add('hold'); return; } if (e.target.closest('button,.sv-foot')) return; down = Date.now(); held = false; ov.classList.add('hold'); });
-  ov.addEventListener('pointerup', e=>{ if (e.target.closest('.sv-chat')){ if (!ov.classList.contains('typing')) ov.classList.remove('hold'); return; } if (e.target.closest('button,.sv-foot')) return; if (!ov.classList.contains('typing')) ov.classList.remove('hold'); if (Date.now()-down > 350){ held = true; return; }
+  ov.addEventListener('pointerdown', e=>{ if (e.target.closest('.sv-chat')){ ov.classList.add('hold'); return; } if (e.target.closest('button,.sv-foot')) return; down = Date.now(); held = false; sx = e.clientX; sy = e.clientY; ov.classList.add('hold'); });
+  ov.addEventListener('pointerup', e=>{ if (e.target.closest('.sv-chat')){ if (!ov.classList.contains('typing')) ov.classList.remove('hold'); return; } if (e.target.closest('button,.sv-foot')) return; if (!ov.classList.contains('typing')) ov.classList.remove('hold');
+    /* 横にスワイプ：左へ＝次の人、右へ＝前の人 */
+    const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)*1.3){ goP(dx < 0 ? 1 : -1); return; }
+    if (Date.now()-down > 350){ held = true; return; }
     const rc = ov.getBoundingClientRect(); go(e.clientX - rc.left < rc.width/3 ? -1 : 1); });
   ov.addEventListener('pointercancel', ()=>{ if (!ov.classList.contains('typing')) ov.classList.remove('hold'); });
   /* 入力中・コメントを見ている間は止める */
