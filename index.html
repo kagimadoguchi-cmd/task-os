@@ -475,6 +475,23 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sc-b b{font-size:15px;font-weight:900}
 .sc-x{padding:8px}.sc-x svg{width:22px;height:22px}
 .sc-dot{width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 2px #fff}
+.sc-load{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:rgba(0,0,0,.45);animation:sv-m .2s ease-out;transition:opacity .3s}
+.sc-load.out{opacity:0}
+.sc-ld-in{display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 22px;border-radius:20px;background:rgba(20,20,24,.82);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff}
+.sc-ld-in b{font-size:14px;font-weight:800}
+.sc-ld-row{display:flex;gap:12px}
+.sc-ld{position:relative;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:#2a2a30 center/cover no-repeat}
+.sc-ld svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.sc-ld circle{fill:none;stroke-width:3.5}
+.sc-ld .bg{stroke:rgba(255,255,255,.18)}
+.sc-ld .fg{stroke:#3D8BEF;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:calc(100 - 100*var(--p,0));transition:stroke-dashoffset .35s ease,stroke .3s}
+.sc-ld i{position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.12);transition:background .25s,transform .3s cubic-bezier(.2,1.6,.4,1)}
+.sc-ld i svg{position:static;width:18px;height:18px;transform:none;stroke:rgba(255,255,255,.5);stroke-width:3;fill:none}
+.sc-ld:not([style*="--p"]) .fg{opacity:0}
+.sc-ld.ok .fg{stroke:#2EBD6B}
+.sc-ld.ok i{background:#2EBD6B;transform:scale(1.1)}
+.sc-ld.ok i svg{stroke:#fff}
+.sc-ld.ng .fg{stroke:#E5484D}
 .sc-bgs{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:6px 12px 10px;animation:sv-m .2s ease-out}
 .sc-bgs[hidden]{display:none}
 .sc-sw{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.7);padding:0}
@@ -505,8 +522,8 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sc-et{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 6px}
 .sc-b.on{background:#fff;color:#111}
 .sc-done{border:0;background:none;color:#fff;font-size:16px;font-weight:900;padding:8px 6px}
-.sc-ew{order:2;flex:1;min-height:0;position:relative;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 0 48px}
-.sc-size{position:absolute;left:-58px;top:110px;width:150px;transform:rotate(-90deg);accent-color:#fff}
+.sc-ew{order:2;flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:0 16px 0 48px}
+.sc-size{position:absolute;left:-58px;top:50%;margin-top:-10px;width:150px;transform:rotate(-90deg);accent-color:#fff}
 .sc-ebox{width:100%;display:flex;justify-content:center}
 .sc-in{width:100%;max-width:420px;border:0;outline:none;resize:none;background:transparent;line-height:1.3;padding:.2em .4em;border-radius:.35em;caret-color:#fff;-webkit-user-select:text;user-select:text;overflow:hidden}
 .sc-in::placeholder{color:rgba(255,255,255,.6)}
@@ -535,6 +552,38 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sv-inp:focus{background:rgba(0,0,0,.45);border-color:#fff}
 .sv-send{flex:none;width:44px;height:44px;border:0;background:none;display:grid;place-items:center;padding:0}
 .sv-send svg{width:26px;height:26px;stroke:#fff;stroke-width:2}
+/* ストーリーの足あと・いいね */
+.sv-actrow{flex:none;align-self:center;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:#fff;padding:8px 18px 0;font-size:12px;font-weight:700}
+.sv-actrow .cnt{display:flex;align-items:center;gap:5px;font-size:14px}
+.sv-actrow .cnt .lk{margin-left:8px;display:inline-flex}
+.sv-actrow svg{width:17px;height:17px;stroke:#fff;stroke-width:2;fill:none}
+.sv-actrow .lk svg{fill:#fff}
+.sv-actrow small{font-size:11px;color:rgba(255,255,255,.7)}
+.sv-actrow .up{width:9px;height:9px;border-left:2px solid #fff;border-top:2px solid #fff;transform:rotate(45deg);margin-bottom:2px;animation:sv-up 1.4s ease-in-out infinite}
+@keyframes sv-up{0%,100%{transform:translateY(2px) rotate(45deg);opacity:.5}50%{transform:translateY(-2px) rotate(45deg);opacity:1}}
+.sv-like{flex:none;width:44px;height:44px;border:0;background:none;display:grid;place-items:center;padding:0}
+.sv-like svg{width:28px;height:28px;stroke:#fff;stroke-width:2;fill:none}
+.sv-like.on svg{fill:var(--heart);stroke:var(--heart);animation:sv-pop .35s ease-out}
+@keyframes sv-pop{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+.sv-sheet{position:absolute;left:0;right:0;bottom:0;height:62%;z-index:5;background:var(--card);color:var(--ink);border-radius:18px 18px 0 0;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.4);animation:svs-in .26s cubic-bezier(.22,.8,.3,1);-webkit-user-select:none;user-select:none}
+.sv-sheet.out{animation:svs-out .2s ease-in forwards}
+@keyframes svs-in{from{transform:translateY(100%)}}
+@keyframes svs-out{to{transform:translateY(100%)}}
+.svs-grab{flex:none;width:40px;height:5px;border-radius:3px;background:var(--line);margin:8px auto 4px}
+.svs-h{flex:none;display:flex;align-items:center;gap:14px;padding:4px 6px 10px 16px;border-bottom:1px solid var(--line);font-size:14px;font-weight:700}
+.svs-h>span{display:inline-flex;align-items:center;gap:6px}
+.svs-h svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+.svs-lk svg{fill:var(--heart);stroke:var(--heart)}
+.svs-x{margin-left:auto;border:0;background:none;padding:8px;color:var(--ink);display:grid;place-items:center}
+.svs-x svg{width:22px;height:22px}
+.svs-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;padding:4px 0 calc(12px + env(safe-area-inset-bottom,0px))}
+.svs-r{display:flex;align-items:center;gap:12px;padding:9px 16px}
+.svs-r .t{flex:1;min-width:0;display:flex;flex-direction:column}
+.svs-r b{font-size:14px;font-weight:700}
+.svs-r small{font-size:12px;color:var(--ink3)}
+.svs-hrt{display:grid}
+.svs-hrt svg{width:22px;height:22px;fill:var(--heart);stroke:var(--heart)}
+.svs-none{text-align:center;color:var(--ink3);font-size:13px;margin:32px 0}
 .sv-none{margin:12px 0;color:var(--ink3);text-align:center;font-size:13px}
 /* 見る画面 */
 .sv{position:fixed;inset:0;z-index:90;background:#000;display:flex;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;animation:sv-in .22s ease-out}
@@ -565,6 +614,13 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sv-h{position:absolute;left:12px;right:8px;top:calc(22px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:8px;color:#fff;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 .sv-h small{opacity:.8;font-size:12px}
 .sv-h .sp{flex:1}
+.sv-pf{display:flex;align-items:center;gap:8px;min-width:0;border:0;background:none;color:#fff;padding:0;font:inherit;text-shadow:inherit;cursor:pointer}
+.sv-pf:active{opacity:.7}
+.sv-pf b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-dl{border:0;background:rgba(255,255,255,.18);color:#fff;height:32px;padding:0 12px 0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;margin-right:4px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .15s,background .15s}
+.sv-dl:active{transform:scale(.92);background:rgba(255,255,255,.3)}
+.sv-dl svg{width:17px;height:17px;stroke:#fff;stroke-width:2.2;fill:none}
+.sv.drag .sv-in{will-change:transform;overflow:hidden;background:#000;box-shadow:0 20px 50px rgba(0,0,0,.4)}
 .sv-x,.sv-del{border:0;background:none;color:#fff;padding:8px;font-size:13px;font-weight:700}
 .sv-x svg{width:24px;height:24px;stroke:#fff}
 @media (prefers-reduced-motion:reduce){.sv{animation:none}}
@@ -587,7 +643,16 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .al-bar i{display:block;height:100%;background:var(--sc)}
 .al-r{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .al-r b{font-size:13px}
-.avr-btn{position:relative;border:0;cursor:pointer;font:inherit;color:inherit}
+.avr-btn{position:relative;border:0;cursor:pointer;font:inherit;color:inherit;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.avr-btn img{pointer-events:none;-webkit-user-drag:none}
+/* 顔を大きく見る */
+.avz{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(0,0,0,0);-webkit-backdrop-filter:blur(0);backdrop-filter:blur(0);transition:background-color .3s,backdrop-filter .3s,-webkit-backdrop-filter .3s;-webkit-user-select:none;user-select:none}
+.avz.on{background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.avz-c{width:min(78vw,340px);height:min(78vw,340px);border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--pc);color:#fff;font-size:min(34vw,150px);font-weight:900;box-shadow:0 20px 50px rgba(0,0,0,.45);will-change:transform;transition:transform .34s cubic-bezier(.2,1.15,.4,1)}
+.avz.out .avz-c{transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.avz-c img{width:100%;height:100%;object-fit:cover}
+.avz-n{margin:0;color:#fff;font-size:17px;font-weight:800;opacity:0;transform:translateY(8px);transition:opacity .25s .08s,transform .3s .08s}
+.avz.on .avz-n{opacity:1;transform:none}
 .avr-tl{position:absolute;right:-2px;bottom:-2px;width:28px;height:28px;border-radius:50%;background:var(--card);box-shadow:var(--sh);display:grid;place-items:center}
 .avr-tl svg{width:16px;height:16px}
 
@@ -1210,6 +1275,8 @@ const I = {
   act:'<defs><linearGradient id="actg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF5E7E"/><stop offset=".55" stop-color="#FF3040"/><stop offset="1" stop-color="#C2185B"/></linearGradient></defs><path d="M12 19.6c-.4 0-.8-.15-1.1-.4C7.6 16.4 3.5 13.2 3.5 9.1c0-2.7 2.1-4.7 4.6-4.7 1.6 0 3 .8 3.9 2.1.9-1.3 2.3-2.1 3.9-2.1 2.5 0 4.6 2 4.6 4.7 0 4.1-4.1 7.3-7.4 10.1-.3.25-.7.4-1.1.4z"/>',
   chat:'<path d="M20.5 11.5a8 8 0 01-11.6 7.1L4 20l1.4-4.6A8 8 0 1120.5 11.5z"/>',
   send:'<path d="M21 3L10 14M21 3l-6.5 18-4.5-7-7-4.5z"/>',
+  dl:'<path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/>',
+  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   save:'<path d="M6 3.5h12v17l-6-4.5-6 4.5z"/>',
   dots:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   list:'<path d="M9 6.5h11M9 12h11M9 17.5h11"/><rect x="3.5" y="5" width="3" height="3" rx=".8"/><rect x="3.5" y="10.5" width="3" height="3" rx=".8"/><rect x="3.5" y="16" width="3" height="3" rx=".8"/>',
@@ -1991,6 +2058,29 @@ document.addEventListener('visibilitychange', swCheck);
 window.addEventListener('pagehide', swCheck);
 window.addEventListener('pageshow', swCheck);
 window.addEventListener('focus', swCheck);
+/* マイページの顔を長押し：顔がその場からふわっと大きくなる。どこかを押すと、元の場所へ小さくもどって閉じる */
+let avLp = null, avEat = false;
+function avZoom(btn, pid){ const e = E(pid), src = btn.querySelector('.av'); if (!e || !src) return; const ph = (PROF[e.id]||{}).photo;
+  const ov = document.createElement('div'); ov.className = 'avz'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-label', e.name + 'のアイコン');
+  ov.innerHTML = `<div class="avz-c" style="--pc:${e.color}">${ph ? `<img src="${ph}" alt="">` : esc(e.name.trim()[0])}</div><p class="avz-n">${esc(e.name)}</p>`;
+  document.body.appendChild(ov); const c = ov.querySelector('.avz-c');
+  /* 元の顔の位置・大きさから、まん中の大きな丸へ */
+  const from = () => { const a = src.getBoundingClientRect(), b = c.getBoundingClientRect(); return `translate3d(${a.left + a.width/2 - (b.left + b.width/2)}px,${a.top + a.height/2 - (b.top + b.height/2)}px,0) scale(${a.width/b.width})`; };
+  c.style.transform = from(); src.style.visibility = 'hidden';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ ov.classList.add('on'); c.style.transform = ''; }));
+  if (navigator.vibrate) try { navigator.vibrate(10); } catch(x){}
+  const close = () => { if (ov.classList.contains('out')) return; ov.classList.add('out'); ov.classList.remove('on'); c.style.transform = src.isConnected ? from() : 'scale(.3)';
+    setTimeout(()=>{ ov.remove(); src.style.visibility = ''; }, 300); };
+  ov.addEventListener('click', e2=>{ e2.stopPropagation(); close(); });
+  document.addEventListener('keydown', function k(e2){ if (e2.key==='Escape'){ close(); document.removeEventListener('keydown', k); } });
+}
+document.addEventListener('pointerdown', e=>{ avEat = false; const b = e.target.closest('.avr-btn'); if (!b || document.querySelector('.avz')) return;
+  if (avLp) clearTimeout(avLp.t); avLp = {x:e.clientX, y:e.clientY, t:setTimeout(()=>{ avLp = null; avEat = true; avZoom(b, b.dataset.sv); }, 420)}; });
+document.addEventListener('pointermove', e=>{ if (avLp && Math.hypot(e.clientX - avLp.x, e.clientY - avLp.y) > 10){ clearTimeout(avLp.t); avLp = null; } });
+['pointerup','pointercancel'].forEach(t=>document.addEventListener(t, ()=>{ if (avLp){ clearTimeout(avLp.t); avLp = null; } }));
+/* 長押しのあとの「押した」はストーリーを開かない */
+document.addEventListener('click', e=>{ if (avEat){ avEat = false; if (e.target.closest('.avr-btn')){ e.stopPropagation(); e.preventDefault(); } } }, true);
+document.addEventListener('contextmenu', e=>{ if (e.target.closest('.avr-btn')) e.preventDefault(); });
 function render(){
   /* ログイン画面は固定（画面ごと動かない）。名前が多くて入りきらない画面だけ、中で上下に動く */
   document.body.classList.toggle('login-lock', S.screen==='login');
@@ -2542,14 +2632,16 @@ const saveStLocal = () => { try { localStorage.setItem(SKEY, JSON.stringify(STOR
 const stMarkSeen = id => { if (STSEEN[id]) return; STSEEN[id] = 1; const live = new Set(stLive().map(x=>x.id)); Object.keys(STSEEN).forEach(k=>{ if (!live.has(k)) delete STSEEN[k]; }); try { localStorage.setItem(SSEEN, JSON.stringify(STSEEN)); } catch(e){} };
 /* 画像を選ぶ（動画は選べない） */
 /* 写真をまとめて選ぶ（max 枚まで・選んだ順）。cb には小さくした画像の配列 */
-function stPickMany(max, cb){
+function stPickMany(max, cb, prog){
   const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.multiple = true;
   f.onchange = () => { const all = [...(f.files||[])], fs2 = all.filter(x=>/^image\//.test(x.type));
     if (all.length > fs2.length) toast('ストーリーに出せるのは画像だけです（動画は出せません）');
     if (fs2.length > max) toast(`写真は${max}枚までなので、はじめの${max}枚を使います`);
-    const list = fs2.slice(0, max), out = []; let i = 0;
-    const next = () => { if (i >= list.length){ if (out.length) cb(out); return; } const rd = new FileReader();
-      rd.onload = () => { const img = new Image(); img.onload = () => { out.push(stShrink(img)); i++; next(); }; img.onerror = () => { toast('読みこめない画像がありました'); i++; next(); }; img.src = rd.result; }; rd.readAsDataURL(list[i]); };
+    const list = fs2.slice(0, max), out = []; let i = 0; const P = (a, b, c) => { if (prog) try { prog(a, b, c); } catch(x){} };
+    if (list.length) P('start', list.length);
+    const next = () => { if (i >= list.length){ P('end'); if (out.length) cb(out); return; } const rd = new FileReader(), k = i;
+      rd.onprogress = ev => { if (ev.lengthComputable && ev.total) P(k, .85*ev.loaded/ev.total); };
+      rd.onload = () => { P(k, .9); const img = new Image(); img.onload = () => { const v = stShrink(img); out.push(v); P(k, 1, v); i++; next(); }; img.onerror = () => { toast('読みこめない画像がありました'); P(k, -1); i++; next(); }; img.src = rd.result; }; rd.readAsDataURL(list[i]); };
     next(); };
   f.click();
 }
@@ -2609,6 +2701,16 @@ function stCompose(opt){
     inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, C.H*.6) + 'px'; };
   const vvFit = () => { const vv = window.visualViewport; if (ed.hidden || !vv){ ed.style.top = ed.style.height = ''; return; } ed.style.top = vv.offsetTop + 'px'; ed.style.height = vv.height + 'px'; };
   if (window.visualViewport){ visualViewport.addEventListener('resize', vvFit); visualViewport.addEventListener('scroll', vvFit); }
+  /* 写真の読みこみの見える化：1枚ずつ、チェックのまわりの輪が満ちていき、終わると写真とチェックが出る */
+  let ldEl = null;
+  const scProg = (k, fr, v) => {
+    if (k==='start'){ if (ldEl) ldEl.remove(); ldEl = document.createElement('div'); ldEl.className = 'sc-load'; ldEl.setAttribute('role','status');
+      ldEl.innerHTML = `<div class="sc-ld-in"><b>写真を読みこみ中…</b><div class="sc-ld-row">${Array.from({length:fr}, (_, i)=>`<span class="sc-ld" data-i="${i}"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="bg" cx="22" cy="22" r="19"/><circle class="fg" cx="22" cy="22" r="19" pathLength="100"/></svg><i>${ic('check')}</i></span>`).join('')}</div></div>`;
+      ov.appendChild(ldEl); return; }
+    if (!ldEl) return;
+    if (k==='end'){ const el = ldEl; ldEl = null; el.querySelector('b').textContent = '読みこみ完了'; setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 300); }, 700); return; }
+    const sp = ldEl.querySelector(`[data-i="${k}"]`); if (!sp) return; if (fr < 0){ sp.classList.add('ng'); return; }
+    sp.style.setProperty('--p', fr.toFixed(3)); if (fr >= 1){ sp.classList.add('ok'); if (v) sp.style.backgroundImage = `url(${v})`; } };
   const openEd = k => { cur = k==null ? {text:'', color:'#FFFFFF', box:false, al:'center', font:0, size:9, x:.5, y:.42, rot:0, sc:1, k:null} : {...C.layers[k], k};
     ed.hidden = false; ov.classList.add('editing'); inp.value = cur.text; edPaint(); vvFit(); setTimeout(()=>{ inp.focus({preventScroll:true}); vvFit(); }, 30); };
   const closeEd = () => { const t = inp.value.replace(/\s+$/,''); inp.blur(); ed.hidden = true; ov.classList.remove('editing');
@@ -2659,7 +2761,7 @@ function stCompose(opt){
         vs.forEach(({v, im})=>{ const n = C.imgs.length; if (!n) C.bg = SC_BGS.length-1;
           /* 1枚目は画面に収まる大きさ。2枚目からは少し小さく、ずらして置く */
           C.imgs.push(n ? {src:v, el:im, x:.5 + (n===1 ? .12 : -.12), y:.5 + (n===1 ? .1 : -.1), sc:.6, rot:(n===1 ? .06 : -.06)} : {src:v, el:im, x:.5, y:.5, sc:1, rot:0}); });
-        draw(); }; im.src = v; }); }); }
+        draw(); }; im.src = v; }); }, scProg); }
     else if (b.classList.contains('sc-aa')) openEd(null);
     else if (b.classList.contains('sc-go')) post(); });
   const post = () => { if (!C.imgs.length && !C.layers.length){ toast('画像か文字を入れてください'); return; }
@@ -2679,7 +2781,7 @@ function stCompose(opt){
     STORIES.push(st); saveStLocal(); if (DBX) dbWrite('stories/'+st.id, ()=>DBX.doc('stories/'+st.id).set(st)); stMarkSeen(st.id);
     close(); render(); toast('ストーリーに投稿しました'); };
   window.addEventListener('resize', fit); requestAnimationFrame(fit);
-  C._test = {C, openEd, closeEd, post, draw}; window.__sc = C._test;
+  C._test = {C, openEd, closeEd, post, draw, scProg}; window.__sc = C._test;
   return {ov, close};
 }
 /* ストーリーへのコメント：全員が見られる */
@@ -2691,18 +2793,40 @@ function stCmAdd(sid, text){ const c = {id:'c'+Date.now()+Math.floor(Math.random
 /* ストーリーを削除：本体だけでなく、そのストーリーへのコメントも共有の置き場からまとめて消す（跡を残さない） */
 function stDelete(id){ STORIES = STORIES.filter(x=>x.id!==id); saveStLocal(); if (DBX) dbWrite('stories/'+id, ()=>DBX.doc('stories/'+id).delete());
   const cms = STCM.filter(c=>c && c.sid===id).map(c=>c.id); STCM = STCM.filter(c=>!(c && c.sid===id)); try { localStorage.setItem(SCKEY, JSON.stringify(STCM)); } catch(e){}
-  if (DBX) cms.forEach(cid=>dbWrite('storycm/'+cid, ()=>DBX.doc('storycm/'+cid).delete())); }
+  if (DBX) cms.forEach(cid=>dbWrite('storycm/'+cid, ()=>DBX.doc('storycm/'+cid).delete()));
+  const vs = STV.filter(v=>v && v.sid===id).map(v=>v.id); STV = STV.filter(v=>!(v && v.sid===id)); try { localStorage.setItem(SVKEY, JSON.stringify(STV)); } catch(e){}
+  if (DBX) vs.forEach(vid=>dbWrite('stview/'+vid, ()=>DBX.doc('stview/'+vid).delete())); }
+/* ストーリーの足あと・いいね：見た人ごとに1件（stview/ストーリーid__本人id）。本人の分だけを書くので、同時に見ても消し合わない。
+   見た人の一覧は、ストーリーを出した本人だけが見られる */
+const SVKEY = 'exec-task-board-stview-v1';
+let STV; try { STV = JSON.parse(localStorage.getItem(SVKEY)) || []; } catch(e){ STV = []; }
+const stvOf = sid => STV.filter(v=>v && v.sid===sid && E(v.by));
+const stvMine = sid => STV.find(v=>v && v.sid===sid && v.by===S.me);
+const stvPut = v => { STV = STV.filter(y=>!(y && y.id===v.id)).concat(v); try { localStorage.setItem(SVKEY, JSON.stringify(STV)); } catch(e){} if (DBX) dbWrite('stview/'+v.id, ()=>DBX.doc('stview/'+v.id).set(v)); };
+/* 見た（自分のストーリーは数えない）。はじめて見た時だけ記録する */
+const stvSeen = x => { if (!x || x.by===S.me || stvMine(x.id)) return; stvPut({id:x.id+'__'+S.me, sid:x.id, by:S.me, at:Date.now(), like:false}); };
+/* いいね：押すたびに付ける／外す。付いたら true */
+const stvLike = x => { const o = stvMine(x.id) || {id:x.id+'__'+S.me, sid:x.id, by:S.me, at:Date.now()}; const v = {...o, like:!o.like, likeAt:o.like ? null : Date.now()}; stvPut(v); return v.like; };
 /* 見る画面：上に人ごとのバー。左を押すと前、右を押すと次、長押しで止まる。5秒で次へ。最後まで見ると閉じる
    左にスワイプで次の人（ホーム上の丸い並びの右どなり）、右にスワイプで前の人へ */
 /* ストーリーのチャット（全員が見られる・古い順で、新しいものが下） */
 let svRefresh = null;
 const chatHtml = sid => { const cs = stCmOf(sid); return cs.length ? cs.map(c=>{ const e = E(c.by); return e ? `<div class="sv-m">${av(e,'s28')}<p><b>${esc(e.name)}</b>${esc(c.text)}</p></div>` : ''; }).join('') : '<p class="sv-none">まだコメントはありません</p>'; };
+/* ストーリーの画像を保存。スマホは共有の画面（「画像を保存」で写真に入る）、パソコンはダウンロード。保存中は止める */
+async function stSave(x, ov){ if (!x || !x.img) return; ov.classList.add('typing','hold');
+  const d = new Date(x.at), name = `story-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.jpg`;
+  const end = () => { if (!ov.classList.contains('sheet') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.sv-inp'))) ov.classList.remove('typing','hold'); };
+  try { if (matchMedia('(pointer:coarse)').matches && navigator.canShare){ const b = await (await fetch(x.img)).blob(), f = new File([b], name, {type:b.type || 'image/jpeg'});
+      if (navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); end(); return; } } }
+  catch(e){ if (e && e.name==='AbortError'){ end(); return; } }
+  try { const a = document.createElement('a'); a.href = x.img; a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast('画像を保存しました'); } catch(e){ toast('保存できませんでした'); }
+  end(); }
 function stOpen(pid){
   const q = Array.from(document.querySelectorAll('.stories [data-sv]')).map(b=>b.dataset.sv).filter(id=>stOfP(id).length);
   let pi = Math.max(0, q.indexOf(pid)); if (!q.includes(pid)) q.splice(0, q.length, pid);
   let list = stOfP(q[pi]), si = Math.max(0, list.findIndex(x=>!STSEEN[x.id]));
   const ov = document.createElement('div'); ov.className = 'sv'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true'); document.body.appendChild(ov); document.body.style.overflow = 'hidden';
-  let down = 0, held = false, sx = 0, sy = 0;
+  let down = 0, held = false, sx = 0, sy = 0, pd = false, dg = false, dgY = 0, dgRaf = 0, vy = {y:0, t:0, v:0};
   const close = () => { ov.remove(); document.removeEventListener('keydown', key); if (!document.getElementById('scrim')) document.body.style.overflow = ''; render(); };
   const go = d => { si += d;
     if (si < 0){ if (pi > 0){ pi--; list = stOfP(q[pi]); si = list.length-1; } else si = 0; }
@@ -2712,23 +2836,61 @@ function stOpen(pid){
   const goP = d => { const np = pi + d; if (np >= q.length) return close();
     if (np < 0){ si = 0; show('prev'); return; }
     pi = np; list = stOfP(q[pi]); si = Math.max(0, list.findIndex(x=>!STSEEN[x.id])); show(d > 0 ? 'next' : 'prev'); };
-  const show = dir => { const x = list[si]; if (!x) return close(); const p = E(x.by); stMarkSeen(x.id);
+  /* 自分のストーリー：下に「見た人・いいね」の数。上にスワイプ（または押す）で、見た人の一覧が下から出る */
+  const actRowIn = x => { const vs = stvOf(x.id), lk = vs.filter(v=>v.like).length;
+    return `<i class="up"></i><span class="cnt">${ic('eye')}<b class="num">${vs.length}</b><span class="lk">${ic('heart')}</span><b class="num">${lk}</b></span><small>上にスワイプで見た人</small>`; };
+  const sheetHtml = x => { const vs = stvOf(x.id).sort((a,b)=>(b.like?1:0)-(a.like?1:0) || (b.likeAt||b.at)-(a.likeAt||a.at)), lk = vs.filter(v=>v.like).length;
+    return `<div class="svs-grab"></div><div class="svs-h"><span>${ic('eye')}<b class="num">${vs.length}</b>人が見ました</span><span class="svs-lk">${ic('heart')}<b class="num">${lk}</b></span><button class="svs-x" aria-label="閉じる">${ic('x')}</button></div>
+      <div class="svs-list">${vs.length ? vs.map(v=>{ const e = E(v.by); return `<div class="svs-r">${av(e,'s40')}<span class="t"><b>${esc(e.name)}</b><small>${ago(v.at)}に見ました</small></span>${v.like?`<i class="svs-hrt" aria-label="いいね">${ic('heart')}</i>`:''}</div>`; }).join('') : '<p class="svs-none">まだだれも見ていません</p>'}</div>`; };
+  const openSheet = () => { const x = list[si]; if (!x || x.by!==S.me || ov.querySelector('.sv-sheet')) return;
+    const sh = document.createElement('div'); sh.className = 'sv-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','見た人'); sh.innerHTML = sheetHtml(x);
+    ov.querySelector('.sv-in').appendChild(sh); ov.classList.add('sheet','typing','hold');
+    /* 一覧のいちばん上で下にスワイプすると閉じる */
+    let y0 = null; sh.addEventListener('pointerdown', e=>{ const l = sh.querySelector('.svs-list'); y0 = (!l.contains(e.target) || l.scrollTop <= 0) ? e.clientY : null; });
+    sh.addEventListener('pointerup', e=>{ if (y0!=null && e.clientY - y0 > 60) closeSheet(); y0 = null; }); };
+  const closeSheet = () => { const sh = ov.querySelector('.sv-sheet'); if (!sh || sh.classList.contains('out')) return; sh.classList.add('out'); ov.classList.remove('sheet','typing','hold'); setTimeout(()=>sh.remove(), 200); };
+  const show = dir => { const x = list[si]; if (!x) return close(); const p = E(x.by); stMarkSeen(x.id); stvSeen(x); ov.classList.remove('sheet','typing','hold'); const mine = stvMine(x.id);
     ov.innerHTML = `<div class="sv-in"><div class="sv-bars">${list.map((y,i)=>`<i class="${i<si?'on':''}"><b class="${i===si?'run':''}" style="animation-duration:${ST_SEC}s"></b></i>`).join('')}</div>
-      <div class="sv-h">${av(p,'s32')}<b>${esc(p.id===S.me?'あなた':p.name)}</b><small>${ago(x.at)}</small><span class="sp"></span>${x.by===S.me?`<button class="sv-del" aria-label="このストーリーを削除">削除</button>`:''}<button class="sv-x" aria-label="閉じる">${ic('x')}</button></div>
+      <div class="sv-h"><button class="sv-pf" data-pid="${p.id}" aria-label="${esc(p.name)}のマイページを見る">${av(p,'s32')}<b>${esc(p.id===S.me?'あなた':p.name)}</b></button><small>${ago(x.at)}</small><span class="sp"></span>${x.img?`<button class="sv-dl" aria-label="画像を保存">${ic('dl')}<span>保存</span></button>`:''}${x.by===S.me?`<button class="sv-del" aria-label="このストーリーを削除">削除</button>`:''}<button class="sv-x" aria-label="閉じる">${ic('x')}</button></div>
       <div class="sv-media">${x.img ? `<img src="${x.img}" alt="${esc(p.name)}のストーリー">${x.txt?`<p class="sv-cap">${esc(x.txt)}</p>`:''}` : `<div class="sv-card"><p>${esc(x.txt)}</p></div>`}</div>
+      ${x.by===S.me ? `<button class="sv-actrow" aria-label="見た人といいねを見る">${actRowIn(x)}</button>` : ''}
       <div class="sv-chat" aria-live="polite">${chatHtml(x.id)}</div>
-      <div class="sv-foot"><input class="sv-inp" type="text" maxlength="200" enterkeyhint="send" placeholder="${x.by===S.me ? 'コメントを書く…' : esc(nick(p))+'さんにコメント…'}" aria-label="コメント"><button class="sv-send" aria-label="送信">${ic('send')}</button></div></div>`;
+      <div class="sv-foot"><input class="sv-inp" type="text" maxlength="200" enterkeyhint="send" placeholder="${x.by===S.me ? 'コメントを書く…' : esc(nick(p))+'さんにコメント…'}" aria-label="コメント">${x.by===S.me ? '' : `<button class="sv-like ${mine && mine.like ? 'on' : ''}" aria-label="いいね">${ic('heart')}</button>`}<button class="sv-send" aria-label="送信">${ic('send')}</button></div></div>`;
     ov.querySelector('.run').addEventListener('animationend', ()=>go(1)); const ch = ov.querySelector('.sv-chat'); ch.scrollTop = ch.scrollHeight;
     if (dir) ov.querySelector('.sv-in').classList.add(dir==='next' ? 'sl-next' : 'sl-prev'); };
   /* ほかの人のコメントが届いたら、チャットを描き直す */
-  svRefresh = () => { if (!ov.isConnected){ svRefresh = null; return; } const ch = ov.querySelector('.sv-chat'), x = list[si]; if (!ch || !x) return; const end = ch.scrollTop + ch.clientHeight >= ch.scrollHeight - 8; ch.innerHTML = chatHtml(x.id); if (end) ch.scrollTop = ch.scrollHeight; };
-  ov.addEventListener('pointerdown', e=>{ if (e.target.closest('.sv-chat')){ ov.classList.add('hold'); return; } if (e.target.closest('button,.sv-foot')) return; down = Date.now(); held = false; sx = e.clientX; sy = e.clientY; ov.classList.add('hold'); });
-  ov.addEventListener('pointerup', e=>{ if (e.target.closest('.sv-chat')){ if (!ov.classList.contains('typing')) ov.classList.remove('hold'); return; } if (e.target.closest('button,.sv-foot')) return; if (!ov.classList.contains('typing')) ov.classList.remove('hold');
+  svRefresh = () => { if (!ov.isConnected){ svRefresh = null; return; } const ch = ov.querySelector('.sv-chat'), x = list[si]; if (!ch || !x) return;
+    /* 足あと・いいねが届いたら、数と一覧も描き直す */
+    const ar = ov.querySelector('.sv-actrow'); if (ar) ar.innerHTML = actRowIn(x);
+    const sh = ov.querySelector('.sv-sheet:not(.out)'); if (sh){ const st = sh.querySelector('.svs-list').scrollTop; sh.innerHTML = sheetHtml(x); sh.querySelector('.svs-list').scrollTop = st; } const end = ch.scrollTop + ch.clientHeight >= ch.scrollHeight - 8; ch.innerHTML = chatHtml(x.id); if (end) ch.scrollTop = ch.scrollHeight; };
+  ov.addEventListener('pointerdown', e=>{ if (e.target.closest('.sv-sheet')) return; if (ov.classList.contains('sheet')){ down = -1; return; }
+    if (e.target.closest('.sv-chat')){ ov.classList.add('hold'); return; } if (e.target.closest('button,.sv-foot')) return; down = Date.now(); held = false; sx = e.clientX; sy = e.clientY; pd = true; dg = false; vy = {y:e.clientY, t:e.timeStamp, v:0}; ov.classList.add('hold'); });
+  /* 下にスワイプ：画面が指についてきて、少し小さく・うしろが透ける。はなすと閉じる（少しだけなら元にもどる） */
+  ov.addEventListener('pointermove', e=>{ if (!pd || ov.classList.contains('sheet')) return; const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!dg){ if (dy > 10 && dy > Math.abs(dx)*1.2){ dg = true; ov.classList.add('drag'); } else return; }
+    const dt = e.timeStamp - vy.t; if (dt > 0){ vy.v = (e.clientY - vy.y)/dt; vy.y = e.clientY; vy.t = e.timeStamp; }
+    dgY = Math.max(0, dy); if (!dgRaf) dgRaf = requestAnimationFrame(()=>{ dgRaf = 0; const el = ov.querySelector('.sv-in'); if (!el) return; const k = Math.min(1, dgY/innerHeight);
+      el.style.transform = `translate3d(0,${dgY}px,0) scale(${1 - .22*k})`; el.style.borderRadius = Math.round(Math.min(24, dgY/4)) + 'px'; ov.style.backgroundColor = `rgba(0,0,0,${(1 - Math.min(.9, k*1.6)).toFixed(3)})`; }); });
+  ov.addEventListener('pointerup', e=>{ if (e.target.closest('.sv-sheet')) return;
+    /* 一覧が出ている時に、上の画像のところを押したら一覧を閉じる */
+    if (ov.classList.contains('sheet')){ if (down === -1) closeSheet(); down = 0; return; }
+    if (dg){ pd = dg = false; const dy = e.clientY - sy; if (dy > innerHeight*.18 || (vy.v > .5 && dy > 30)) dragClose(); else dragBack(); return; } pd = false;
+    if (e.target.closest('.sv-chat')){ if (!ov.classList.contains('typing')) ov.classList.remove('hold'); return; } if (e.target.closest('button,.sv-foot')) return; if (!ov.classList.contains('typing')) ov.classList.remove('hold');
     /* 横にスワイプ：左へ＝次の人、右へ＝前の人 */
-    const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)*1.3){ goP(dx < 0 ? 1 : -1); return; }
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    /* 上にスワイプ：自分のストーリーなら、見た人の一覧を出す */
+    if (dy < -60 && Math.abs(dy) > Math.abs(dx)*1.3){ if (list[si] && list[si].by===S.me) openSheet(); return; }
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)*1.3){ goP(dx < 0 ? 1 : -1); return; }
     if (Date.now()-down > 350){ held = true; return; }
     const rc = ov.getBoundingClientRect(); go(e.clientX - rc.left < rc.width/3 ? -1 : 1); });
-  ov.addEventListener('pointercancel', ()=>{ if (!ov.classList.contains('typing')) ov.classList.remove('hold'); });
+  ov.addEventListener('pointercancel', ()=>{ if (dg){ pd = dg = false; dragBack(); return; } pd = false; if (!ov.classList.contains('typing')) ov.classList.remove('hold'); });
+  const dragEnd = () => { if (dgRaf){ cancelAnimationFrame(dgRaf); dgRaf = 0; } };
+  const dragClose = () => { dragEnd(); const el = ov.querySelector('.sv-in'), ez = 'cubic-bezier(.3,.6,.35,1)';
+    el.style.transition = `transform .26s ${ez},opacity .26s ${ez}`; el.style.transform = `translate3d(0,${innerHeight*.9}px,0) scale(.7)`; el.style.opacity = '0';
+    ov.style.transition = 'background-color .26s'; ov.style.backgroundColor = 'rgba(0,0,0,0)'; ov.style.pointerEvents = 'none'; setTimeout(close, 260); };
+  const dragBack = () => { dragEnd(); const el = ov.querySelector('.sv-in'); if (!el) return; const ez = 'cubic-bezier(.2,1.25,.4,1)';
+    el.style.transition = `transform .32s ${ez},border-radius .32s`; el.style.transform = ''; el.style.borderRadius = ''; ov.style.transition = 'background-color .25s'; ov.style.backgroundColor = '';
+    setTimeout(()=>{ el.style.transition = ''; ov.style.transition = ''; ov.classList.remove('drag'); }, 330); if (!ov.classList.contains('typing')) ov.classList.remove('hold'); };
   /* 入力中・コメントを見ている間は止める */
   const stop = on => { ov.classList.toggle('typing', on); ov.classList.toggle('hold', on); };
   ov.addEventListener('focusin', e=>{ if (e.target.closest('.sv-inp')) stop(true); });
@@ -2738,9 +2900,16 @@ function stOpen(pid){
     stCmAdd(list[si].id, v); i.value = ''; i.blur(); stop(false); const ch = ov.querySelector('.sv-chat'); if (ch){ ch.innerHTML = chatHtml(list[si].id); ch.scrollTop = ch.scrollHeight; } };
   ov.addEventListener('keydown', e=>{ if (e.key==='Enter' && e.target.closest('.sv-inp') && !e.isComposing){ e.preventDefault(); send(); } });
   ov.addEventListener('click', e=>{ e.stopPropagation(); if (e.target.closest('.sv-send')) send();
+    else if (e.target.closest('.sv-actrow')) openSheet();
+    else if (e.target.closest('.svs-x')) closeSheet();
+    else if (e.target.closest('.sv-like')){ const b = e.target.closest('.sv-like'), on = stvLike(list[si]); b.classList.toggle('on', on); if (on && navigator.vibrate) try { navigator.vibrate(8); } catch(x){} }
+    else if (e.target.closest('.sv-dl')) stSave(list[si], ov);
+    else if (e.target.closest('.sv-pf')){ const id = e.target.closest('.sv-pf').dataset.pid;
+      if (id===S.me) S.view = 'my'; else { if (S.prof!==id || S.view!=='prof'){ S.pfTab = 'todo'; stepOn(id, S.me); } S.prof = id; S.view = 'prof'; }
+      close(); window.scrollTo(0,0); }
     else if (e.target.closest('.sv-x')) close();
     else if (e.target.closest('.sv-del')){ const x = list[si]; stDelete(x.id); toast('ストーリーを削除しました'); list = stOfP(q[pi]); if (!list.length) return close(); si = Math.min(si, list.length-1); show(); } });
-  const key = e => { if (e.target.closest && e.target.closest('.sv-inp')) return; if (e.key==='Escape') close(); else if (e.key==='ArrowRight') go(1); else if (e.key==='ArrowLeft') go(-1); };
+  const key = e => { if (e.target.closest && e.target.closest('.sv-inp')) return; if (e.key==='Escape' && ov.querySelector('.sv-sheet')) closeSheet(); else if (e.key==='Escape') close(); else if (e.key==='ArrowRight') go(1); else if (e.key==='ArrowLeft') go(-1); };
   document.addEventListener('keydown', key);
   show();
 }
@@ -2845,6 +3014,11 @@ function startSync(db){
     const all = sn.docs.map(d=>JSON.parse(jkey(d.data()))).filter(x=>x && x.id);
     all.filter(x=>Date.now()-x.at >= ST_LIFE).forEach(x=>dbWrite('storycm/'+x.id, ()=>db.doc('storycm/'+x.id).delete()));
     STCM = all.filter(x=>Date.now()-x.at < ST_LIFE); try { localStorage.setItem(SCKEY, jkey(STCM)); } catch(e){} if (svRefresh) svRefresh(); }, fail);
+  /* ストーリーの足あと・いいね。古いもの（24時間より前）は消す */
+  db.collection('stview').onSnapshot(sn=>{ if (sn.empty && sn.metadata.fromCache) return;
+    const all = sn.docs.map(d=>JSON.parse(jkey(d.data()))).filter(x=>x && x.id);
+    all.filter(x=>Date.now()-x.at >= ST_LIFE).forEach(x=>dbWrite('stview/'+x.id, ()=>db.doc('stview/'+x.id).delete()));
+    STV = all.filter(x=>Date.now()-x.at < ST_LIFE); try { localStorage.setItem(SVKEY, jkey(STV)); } catch(e){} if (svRefresh) svRefresh(); }, fail);
   /* パスワード（ハッシュ）は人ごとに別の場所（pw/本人id）。だれかの登録がほかの人の登録を上書きしないように */
   db.collection('pw').onSnapshot(sn=>{ READY.add('pw'); const m = {}; sn.docs.forEach(d=>{ const b = JSON.parse(jkey(d.data())); if (b && b.h) m[d.id] = b.h; }); PWH = m;
     try { localStorage.setItem(PWKEY, jkey(PWH)); } catch(e){} PEOPLE.forEach(p=>{ p.reg = !!(PWH[p.id] || p.pwh); }); liveRender(); }, fail);
