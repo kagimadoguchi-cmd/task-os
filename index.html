@@ -1269,7 +1269,7 @@ const UKEY = 'exec-task-board-units-v1';
 let UMEM; try { UMEM = JSON.parse(localStorage.getItem(UKEY)) || {}; } catch(e){ UMEM = {}; }
 const saveUnits = () => { try { localStorage.setItem(UKEY, JSON.stringify(UMEM)); } catch(e){} pushDoc('app/units', {m:UMEM}); };
 /* はじめの振り分け（テスト用）：DUNK 水道事業部に 山本（課長）・森（社員）・藤田（事務）・大野（事務） */
-const DEF_UMEM = {'u0-1':['u1','u21','u22','u23']};
+const DEF_UMEM = {};
 const unitMem0 = id => (UMEM[id] || DEF_UMEM[id] || (id==='exec' ? PEOPLE.filter(p=>p.role==='exec').map(p=>p.id) : []));
 /* エリアの担当（キー「会社事業~エリア番号」） */
 const areaMem = key => (UMEM[key] || []).filter(pid=>E(pid));
@@ -1304,25 +1304,13 @@ const RANK = {exec:9, super:5, general:5, bucho:5, kacho:4, kakari:3, shunin:2, 
 const SEE_TOP = {exec:9, super:5, general:5, bucho:5, kacho:4, kakari:4, shunin:4, shain:1, jimu:0};
 const ALL_CO = ['exec','super','general','bucho'];
 /* 人。pw は登録済みの人が自分で決めたパスワード（見本）。役員は title（肩書き）・area（担当分野）・color（顔の色）を持つ */
-const PEOPLE = [
-  {id:'kiryu',  name:'神崎 隆', role:'exec', biz:'exec', title:'代表取締役 CEO', area:'経営全般', color:'#1C2733', admin:true, reg:true, pw:'demo0101'},
-  {id:'sakaki', name:'白石 恵美', role:'exec', biz:'exec', title:'取締役 CFO', area:'財務・IR', color:'#2D5B8C', admin:true, reg:true, pw:'demo0102'},
-  {id:'makabe', name:'黒田 剛', role:'exec', biz:'exec', title:'取締役 COO', area:'事業運営', color:'#3E6B4E', admin:false, reg:true, pw:'demo0103'},
-  {id:'sonoda', name:'早瀬 千夏', role:'exec', biz:'exec', title:'執行役員 CHRO', area:'人事・採用', color:'#4A4466', admin:false, reg:true, pw:'demo0104'},
-  {id:'takano', name:'東 雅人', role:'exec', biz:'exec', title:'執行役員 CTO', area:'システム・DX', color:'#9A5A2E', admin:false, reg:false, pw:null},
-  {id:'himuro', name:'柊 誠一', role:'exec', biz:'exec', title:'執行役員 CRO（リスク統括）', area:'リスク・ガバナンス', color:'#6B3B3B', admin:false, reg:true, pw:'demo0106'},
-  ...[
-    ['u1','山本 浩二','water','kacho',false,true],['u2','中村 美咲','water','shunin',false,true],['u3','小林 翔','water','bucho',true,true],['u4','岡田 健司','water','shunin',false,false],
-    ['u5','加藤 由紀','elec','kacho',false,true],['u6','吉田 拓也','elec','shunin',false,false],['u7','山田 健','key','kacho',false,true],['u8','佐々木 彩','key','kakari',false,true],
-    ['u9','井上 誠','road','kacho',false,true],['u10','木村 大輔','tantei','kacho',false,true],['u11','林 結衣','tantei','shunin',false,false],['u12','清水 亮','sys','kacho',false,true],
-    ['u15','石川 修','exec','general',true,true],['u16','前田 聡','sys','super',true,true],
-    /* テスト用：部長・社員・事務 */
-    ['u20','松井 大地','water','bucho',false,true],['u21','森 さくら','water','shain',false,true],['u22','藤田 陽菜','water','jimu',false,true],['u23','大野 美穂','water','jimu',false,true],
-  ].map(([id,name,biz,role,admin,reg])=>({id, name, biz, role, title:ROLE[role], area:B(biz).name, color:B(biz).color, admin, reg, pw: reg ? 'demo'+id.slice(1).padStart(4,'0') : null})),
-];
+/* 人の一覧。実在の人は HTML には書かず、管理で追加した人として共有の置き場（Supabase の app/people）に入れる。ここは空のまま */
+const PEOPLE = [];
 /* 役員は全員、管理者にする */
 PEOPLE.forEach(p=>{ if (p.role==='exec') p.admin = true; });
-const COMMON_PW = '0000'; /* 全員共通の初回用パスワード（見本） */
+const COMMON_PW = '0000'; /* 全員共通の初回用パスワード。はじめての人はこれで入り、自分のパスワードを決める */
+/* パスワードはそのまま保存せず、ハッシュ（SHA-256）にして保存する */
+const pwHash = async s => { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('tos:' + s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); } catch(e){ let h = 0; for (const c of s) h = (h*31 + c.charCodeAt(0)) >>> 0; return 'x' + h.toString(16); } };
 /* いまは一部の部門だけで試す（小さく始める）。全員で使い始めるときは false にする */
 const EXEC_ONLY = true;
 /* 最初に使う部門：役員（role が exec）＋ここに書いた事業部門（カギ・システム）。広げるときはここに足す */
@@ -1337,8 +1325,11 @@ const isBlocked = p => !!p && BLOCK.includes(p.id);
 /* 管理画面で新しく作った担当者（この端末と共有データに保存）。パスワードは入れない */
 const NPKEY = 'exec-task-board-people-v1';
 let ADDP; try { ADDP = JSON.parse(localStorage.getItem(NPKEY)) || []; } catch(e){ ADDP = []; }
+/* 共有の置き場の人を PEOPLE に入れる。pwh は本人が決めたパスワードのハッシュ（あれば登録済み） */
 const mergeAdded = list => { list.forEach(x=>{ if (!x || !x.id || !x.name) return; const o = PEOPLE.find(p=>p.id===x.id);
-  if (o) Object.assign(o, {name:x.name, role:x.role, biz:x.biz, title:x.title, area:x.area, color:x.color}); else PEOPLE.push({...x, admin:x.role==='exec', reg:false, pw:null, added:true}); }); };
+  if (o) Object.assign(o, {name:x.name, role:x.role, biz:x.biz, title:x.title, area:x.area, color:x.color, pwh:x.pwh||null, reg:!!x.pwh}); else PEOPLE.push({...x, admin:x.role==='exec', reg:!!x.pwh, pwh:x.pwh||null, pw:null, added:true}); }); };
+/* パスワードの保存：本人のハッシュを共有の置き場（app/people）に入れる。null で未登録に戻す */
+const setPw = (pid, pwh) => { const p = E(pid); if (p){ p.pwh = pwh; p.reg = !!pwh; } const a = ADDP.find(x=>x.id===pid); if (a){ a.pwh = pwh; } else if (p) ADDP.push({id:p.id, name:p.name, role:p.role, biz:p.biz, title:p.title, area:p.area, color:p.color, pwh}); saveAdded(); };
 mergeAdded(ADDP);
 /* 隠す人（見本の役員など）。共有データ app/people の hide に入れる */
 const NHKEY = 'exec-task-board-hide-v1';
@@ -1362,24 +1353,8 @@ const wm = k => `<svg class="wm" viewBox="0 0 24 24" aria-hidden="true">${WM[k]}
 const PRIO = {high:'高', mid:'中', low:'低'};
 let seq = 1;
 const T = (owner, title, due, status, prog, prio, desc, note, likes) => ({id:'t'+(seq++), owner, title, start:status==='todo'?null:iso(dayAdd(due-5-(seq*7)%14)), due:iso(dayAdd(due)), status, prog, prio, desc, note:note||'', likes:likes||0, liked:false, saved:false, comments:[], at:Date.now()-(seq*97)*6e4});
-const SEED = [
-  T('himuro','取締役会の議事録チェック',-15,'done',100,'low','この1年分の議事録、ひととおり目を通しました。書き方がばらばらだったので、ひな形を作って総務さんに渡してあります。','終わりました！ご協力ありがとうございました',4),
-  T('sakaki','第3四半期の決算説明資料',6,'doing',60,'high','投資家さん向けの資料づくり中です。去年との比較のところを、もう少しわかりやすくしたいなと思っています。','グラフをきれいに直してもらっているところです',7),
-  T('kiryu','中期経営計画のたたき台',20,'doing',35,'high','これから3年、どこに力を入れるか。まずは私の考えをざっくりまとめて、次の役員会でみんなの意見を聞かせてください。','まだ半分くらい。週末にもうひと頑張りします',9),
-  T('makabe','関西の夜間対応、体制を見直す',-2,'doing',70,'high','冬は夜の出動がぐっと増えるので、当番を2人にしたいと考えています。現場の負担を少しでも減らしたい。','白石さんの人件費の計算待ちです',3),
-  T('sonoda','来年の新卒採用の計画',12,'todo',0,'mid','何人採るか、どこに配属するか。各事業の部長さんに話を聞いてから案を作りますね。','',2),
-  T('takano','現場の記録をタブレットに',30,'doing',40,'mid','紙の作業記録、そろそろ卒業しましょう。いま水道のみなさんに試作版を使ってもらっています。','「意外とかんたん」と言ってもらえました',5),
-  T('himuro','情報セキュリティのルール見直し',-4,'doing',50,'high','外注先さんとのやりとりのルールを足します。期限を過ぎてしまいました、すみません…','法務の確認がもう少しかかりそうです',1),
-  T('sakaki','銀行さんとの借入条件の相談',3,'todo',0,'mid','金利のこと、一度ちゃんと話しておきたいので準備を始めます。','',0),
-  T('kiryu','全社キックオフのあいさつ',5,'done',100,'low','来期のテーマ、短めにまとめました。当日は笑顔でいきます。','原稿できました！',6),
-  T('makabe','協力会社さんとの単価の相談',9,'doing',20,'mid','関東の3社さんと話し合い中です。長いお付き合いなので、お互い納得できる形にしたいです。','',1),
-  T('sonoda','管理職研修の中身を決める',-1,'todo',0,'low','面談のやり方が人によってちがうので、そろえたいなと。みなさんの「困った」を集めています。','',0),
-  T('takano','社内ネットワークの機器入れ替え',2,'doing',80,'mid','土曜の夜に作業します。2時間ほどネットが使えなくなるので、ご注意ください。','機器はもう届いています',2),
-];
-SEED.push({...T('kiryu','来週の部長会の資料チェック',4,'todo',0,'mid','数字の抜けがないか、ざっと見てもらえると助かります。','',0), taker:'u1', req:'pending', at:Date.now()-40*6e4});
-SEED[5].taker = 'u1'; SEED[5].takenAt = Date.now()-50*6e4;
-SEED[1].comments = [{by:'kiryu', at:Date.now()-5*36e5, text:'いい感じですね！去年との比較は、ポイントを3つくらいにしぼると伝わりやすいかも。'}];
-SEED[3].comments = [{by:'sakaki', at:Date.now()-26*36e5, text:'お待たせしてすみません、明日には出しますね！'}];
+/* 見本のタスクは入れない（共有の置き場から読む） */
+const SEED = [];
 
 /* 保存（この端末のブラウザに残す） */
 const KEY = 'exec-task-board-v5'; /* 見本の文を変えたので v2（前の保存は使わない） */
@@ -1403,6 +1378,8 @@ const dt = at => { const d = new Date(at); return `${d.getMonth()+1}月${d.getDa
 /* ---------- 状態 ---------- */
 const S = {screen:'login', loginStep:0, loginName:null, view:'home', filter:'all', who:null, q:'', prof:null, month:null, pick:null, me:null, myTab:'open'};
 const E = id => PEOPLE.find(p=>p.id===id);
+/* 画面に出すとき用：いない人（削除された人・古いデータの人）でも落ちないように、仮の人を返す */
+const EP = id => E(id) || {id, name:'（いない人）', role:'jimu', biz:'exec', title:'', area:'', color:'#8B919A', gone:true};
 /* 短い呼び名：ふだんは名字。同じ名字の人がいる時は名字＋名前 */
 const nick = e => { const f = e.name.split(' ')[0]; return PEOPLE.some(p=>p!==e && canUse(p) && p.name.split(' ')[0]===f) ? e.name.replace(/\s/g,'') : f; };
 const OFFER_MAX = 1;   /* 1タスクを受けられる人数（あとで変えるときはここ） */
@@ -1521,7 +1498,7 @@ function progBurst(el){
   fx.style.left = (r.left + r.width/2 + window.scrollX) + 'px'; fx.style.top = (r.top + r.height/2 + window.scrollY) + 'px'; document.body.appendChild(fx); setTimeout(()=>fx.remove(), 1400);
 }
 function postHtml(t){
-  const e = scopeMem() && t.taker ? E(t.taker) : E(t.owner), s = STATUS[stOf(t)], k = stOf(t);
+  const e = scopeMem() && t.taker ? EP(t.taker) : EP(t.owner), s = STATUS[stOf(t)], k = stOf(t);
   const last = t.comments[t.comments.length-1];
   return `<article class="post" style="--sc:${s.c};--sbg:${s.bg}">
     <div class="ph"><button class="avr" data-prof="${e.id}" aria-label="${esc(e.name)}のページ" style="border:0">${av(e,'s40')}</button>
@@ -1543,7 +1520,7 @@ function postHtml(t){
     ${t.note?`<div class="reply">└ ${esc(t.note)}</div>`:''}
     ${t.comments.length?`<button class="cmore" data-cmt="${t.id}">${t.comments.length>1?`コメント${t.comments.length}件をすべて見る`:`${esc(E(last.by).name)}：${esc(last.text.slice(0,28))}${last.text.length>28?'…':''}`}</button>`:''}
     ${progHtml(t, 'p'+t.id)}
-    ${t.taker ? `<div class="taker"><span class="tk-l">担当</span><button class="tk-p" data-prof="${t.taker}">${av(E(t.taker),'s28')}<b>${esc(E(t.taker).name)}</b></button>${t.taker===S.me?'<em class="tk-me">あなたが受けました</em>':''}</div>` : ''}
+    ${t.taker ? `<div class="taker"><span class="tk-l">担当</span><button class="tk-p" data-prof="${t.taker}">${av(EP(t.taker),'s28')}<b>${esc(EP(t.taker).name)}</b></button>${t.taker===S.me?'<em class="tk-me">あなたが受けました</em>':''}</div>` : ''}
     ${canTake(t) ? `<div class="take">${heldOf(S.me) >= HOLD_MAX
         ? `<button class="btn wide" disabled>着手（先着${OFFER_MAX}名）</button><p class="take-ng">いま${heldOf(S.me)}件抱えています。上限は${HOLD_MAX}件なので、完了してから受けられます。</p>`
         : `<button class="btn wide" data-take="${t.id}">着手（先着${OFFER_MAX}名）</button>`}</div>` : ''}
@@ -1577,7 +1554,7 @@ function homeHtml(){
 }
 function searchHtml(){
   const q = S.q.trim();
-  const hit = VT().filter(t=>!q || (t.title+t.desc+E(t.owner).name+E(t.owner).area).includes(q));
+  const hit = VT().filter(t=>!q || (t.title+t.desc+EP(t.owner).name+EP(t.owner).area).includes(q));
   /* 状態で切り替え：未着手・期限超過・進行中・完了 */
   const SF = [['todo','未着手'],['late','期限超過'],['doing','進行中'],['done','完了']];
   const sf = S.sf || 'todo', inSf = (t,k) => stOf(t)===k;
@@ -1608,9 +1585,9 @@ function listHtml(lf){
 }
 const alLeft = t => t.status==='done' ? '<small class="left">完了</small>' : diff(t.due)<0 ? `<small class="left ng">${-diff(t.due)}日超過</small>` : diff(t.due)===0 ? '<small class="left warn">今日まで</small>' : `<small class="left ${diff(t.due)<=3?'warn':''}">残り${diff(t.due)}日</small>`;
 function alRows(list){
-  return `<div class="alist">${list.map(t=>{ const k = stOf(t), st = STATUS[k], o = E(t.owner);
+  return `<div class="alist">${list.map(t=>{ const k = stOf(t), st = STATUS[k], o = EP(t.owner);
     return `<button class="al-row" data-open="${t.id}" style="--sc:${st.c}"><span class="al-st">${st.l}</span>
-      <span class="al-main"><b>${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(E(t.taker).name)}`:''}</small>
+      <span class="al-main"><b>${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(EP(t.taker).name)}`:''}</small>
         <span class="al-bar"><i style="width:${t.prog}%"></i></span></span>
       <span class="al-r"><b class="num">${t.prog}%</b>${alLeft(t)}</span></button>`; }).join('')}</div>`;
 }
@@ -1622,7 +1599,7 @@ function tlHtml(src){
   const n = Math.round((hi-lo)/DAY)+1, x = d => Math.round((new Date(d)-lo)/DAY)*W;
   const days = Array.from({length:n}, (_,i)=>new Date(+lo+i*DAY));
   const head = days.map(d=>`<span class="tl-d ${d.getDay()%6===0?'we':''} ${iso(d)===iso(TODAY)?'today':''}">${d.getDate()===1||+d===+lo?`<em>${d.getMonth()+1}月</em>`:''}${d.getDate()}<small>${WD[d.getDay()]}</small></span>`).join('');
-  const rows = list.map(t=>{ const e = E(t.owner), k = stOf(t), st = STATUS[k], s0 = startOf(t), l = x(s0||t.due), w = Math.max(x(t.due)-l+W, W);
+  const rows = list.map(t=>{ const e = EP(t.owner), k = stOf(t), st = STATUS[k], s0 = startOf(t), l = x(s0||t.due), w = Math.max(x(t.due)-l+W, W);
     return `<div class="tl-row"><button class="tl-lab" data-open="${t.id}">${av(e,'s28')}<span><b>${esc(t.title)}</b><small>${esc(e.name.split(' ')[0])}・${st.l}</small></span></button>
       <div class="tl-tr">${s0 ? `<button class="tl-bar ${k}" data-open="${t.id}" style="left:${l}px;width:${w}px;--sc:${st.c}" aria-label="${esc(t.title)} ${md(s0)}から${md(t.due)} ${t.prog}%"><i style="width:${t.prog}%"></i><span>${t.prog}%</span></button>`
         : `<button class="tl-bar tl-pin ${k}" data-open="${t.id}" style="left:${l}px;width:${W}px;--sc:${st.c}" aria-label="${esc(t.title)} まだ着手していません 期限${md(t.due)}"></button>`}
@@ -1645,7 +1622,7 @@ function monthHtml(){
       return `<button class="${k===iso(TODAY)?'today':''} ${has.has(k)?'has':''} ${d.getMonth()!==m?'out':''}" data-pick="${k}" aria-pressed="${S.pick===k}">${d.getDate()}<i></i></button>`; }).join('')}</div>
     ${S.pick?`<div class="filters" style="border:0;padding-bottom:0"><button class="chip" data-pick="">${md(S.pick)}だけ ✕</button></div>`:''}
     ${keys.map(k=>{ const n = diff(k); return `<div class="day ${n<0?'late':''}">${md(k)}（${WD[new Date(k).getDay()]}）<small>${n<0?`${-n}日過ぎ`:n===0?'今日':n===1?'明日':`あと${n}日`}</small></div>
-      <div class="lst">${groups[k].map(t=>{ const s = STATUS[stOf(t)], e = E(t.owner); return `<button class="row" data-open="${t.id}" style="--sc:${s.c}"><span class="dot"></span>${av(e,'s28')}<span class="t"><b>${esc(t.title)}</b><small>${esc(e.name)}・${s.l}・${t.prog}%</small></span></button>`; }).join('')}</div>`; }).join('')
+      <div class="lst">${groups[k].map(t=>{ const s = STATUS[stOf(t)], e = EP(t.owner); return `<button class="row" data-open="${t.id}" style="--sc:${s.c}"><span class="dot"></span>${av(e,'s28')}<span class="t"><b>${esc(t.title)}</b><small>${esc(e.name)}・${s.l}・${t.prog}%</small></span></button>`; }).join('')}</div>`; }).join('')
       || '<p class="empty">この日の予定はありません</p>'}`;
 }
 function execsHtml(){
@@ -1658,7 +1635,7 @@ const tasksOf = p => VT().filter(t=>!isPendingReq(t) && (t.taker===p.id || t.own
 const likesOf = p => tasksOf(p).reduce((n,t)=>n+t.likes,0);
 const tabBar = (tabs, cur, own) => `<div class="mytabs five" role="tablist">${tabs.map(([k,l,list])=>`<button role="tab" data-${own?'mytab':'pftab'}="${k}" aria-selected="${cur[0]===k}" class="tb-${k}">${l}<small class="num ${k==='req'&&list.length?'req-n':''}">${list.length}</small></button>`).join('')}</div>`;
 function reqListHtml(list){
-  return `<div class="req-list">${list.map(t=>{ const from = E(t.owner); return `<div class="req-card"><div class="req-h">${av(from,'s32')}<span><b>${esc(from.name)}</b>さんからの依頼<small>${ago(t.at)}</small></span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
+  return `<div class="req-list">${list.map(t=>{ const from = EP(t.owner); return `<div class="req-card"><div class="req-h">${av(from,'s32')}<span><b>${esc(from.name)}</b>さんからの依頼<small>${ago(t.at)}</small></span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
       <h3>${esc(t.title)}</h3>${t.desc?`<p>${esc(t.desc)}</p>`:''}<small class="num">期日 ${ymd(t.due)}${diff(t.due)>=0?`（あと${diff(t.due)}日）`:'（過ぎています）'}</small>
       <div class="btns"><button class="btn" data-reqok="${t.id}" ${heldOf(S.me)>=HOLD_MAX?'disabled':''}>着手</button></div>
       ${heldOf(S.me)>=HOLD_MAX?`<p class="take-ng">いま${heldOf(S.me)}件抱えています。上限は${HOLD_MAX}件なので、完了してから受けられます。</p>`:''}</div>`; }).join('') || '<p class="empty">届いている依頼はありません</p>'}</div>`;
@@ -2127,12 +2104,12 @@ const tchatHtml = t => { const cs = (t.comments || []).slice().reverse(); if (!c
       : `<div class="tc-m ${first?'':'cont'}">${first ? av(e,'s32') : '<span class="tc-sp"></span>'}<div class="tc-b">${first ? `<b>${esc(e.name)}</b>` : ''}<p class="cm-t">${esc(c.text)}</p><small>${tm}</small></div></div>`; }).join(''); };
 function detailSheet(id){
   const t = TASKS.find(x=>x.id===id); if (!t || !canSee(t)) return;
-  const e = E(t.owner), k = stOf(t), st = STATUS[k];
+  const e = EP(t.owner), k = stOf(t), st = STATUS[k];
   sheet(`${head('タスクの内容')}
     <div class="dt-head" style="--sc:${st.c};--sbg:${st.bg}"><span class="spill">${st.l}</span><h3>${esc(t.title)}</h3></div>
     <dl class="dl">
       <dt>依頼者</dt><dd><button class="tk-p" data-prof="${e.id}">${av(e,'s28')}<b>${esc(e.name)}</b></button></dd>
-      <dt>担当</dt><dd>${t.taker?`<button class="tk-p" data-prof="${t.taker}">${av(E(t.taker),'s28')}<b>${esc(E(t.taker).name)}</b></button>`:'まだだれも受けていません'}</dd>
+      <dt>担当</dt><dd>${t.taker?`<button class="tk-p" data-prof="${t.taker}">${av(EP(t.taker),'s28')}<b>${esc(EP(t.taker).name)}</b></button>`:'まだだれも受けていません'}</dd>
       <dt>期間</dt><dd class="num">${startOf(t) ? `${ymd(startOf(t))}（着手した日）〜 ` : 'まだ着手していません・期限 '}${ymd(t.due)}${t.status!=='done'?`（${diff(t.due)<0?`${-diff(t.due)}日過ぎ`:diff(t.due)===0?'今日まで':`あと${diff(t.due)}日`}）`:''}</dd>
       <dt>優先度</dt><dd>${PRIO[t.prio]}</dd>
       <dt>進み具合</dt><dd class="dd-prog" style="--sc:${st.c}">${progHtml(t, '')}</dd>
@@ -2198,7 +2175,7 @@ document.addEventListener('click', e=>{
     t.likedBy = on ? t.likedBy.filter(x=>x!==S.me) : t.likedBy.concat(S.me); t.likes += on ? -1 : 1; t.likeAt = {...(t.likeAt||{})}; if (on) delete t.likeAt[S.me]; else t.likeAt[S.me] = Date.now(); save(); render(); popBtn(`[data-like="${t.id}"]`, !on, 'heart'); return; }
   if (d.save){ const t = find(d.save); t.savedBy = (t.savedBy||[]).includes(S.me) ? t.savedBy.filter(x=>x!==S.me) : (t.savedBy||[]).concat(S.me); save(); render(); popBtn(`[data-save="${t.id}"]`, isSaved(t), 'mark'); toast(isSaved(t)?'注目に入れました':'注目から外しました'); return; }
   if (d.take){ const t = find(d.take);
-    if (t.taker){ toast(`受付終了です。先に${E(t.taker).name}さんが受けました`); render(); return; }
+    if (t.taker){ toast(`受付終了です。先に${EP(t.taker).name}さんが受けました`); render(); return; }
     if (heldOf(S.me) >= HOLD_MAX){ toast(`抱えられるタスクは${HOLD_MAX}件までです`); return; }
     t.taker = S.me; t.takenAt = Date.now(); t.status = 'doing'; markStart(t); save(); render(); toast('着手しました。マイページの「進行中」に入りました'); return; }
   if (d.start){ const t = find(d.start); if (!canFinish(t)) return; t.status='doing'; markStart(t); save(); render(); toast('着手しました'); return; }
@@ -2273,20 +2250,20 @@ document.addEventListener('click', e=>{
   if (d.act==='cropok'){ if (crop) cropDone(); return; }
   if (d.act==='pfsave'){ keepDraft(); if (blockPII(['pf-goal','pf-vision'])) return;
     PROF[S.me] = {photo:draft.photo, goal:draft.goal.trim(), vision:draft.vision.trim()}; saveProf(); draft = null; closeSheet(); render(); toast('プロフィールを保存しました'); return; }
-  if (d.act==='switch'){ sheet(`${head('ほかの役員に切り替え')}<p style="margin:0;color:var(--ink3);font-size:13px">ログインの代わりに、だれとして使うかを選びます。</p>
+  if (d.act==='switch' && DBG_ON){ sheet(`${head('ほかの役員に切り替え')}<p style="margin:0;color:var(--ink3);font-size:13px">ログインの代わりに、だれとして使うかを選びます。</p>
     <div class="lst">${EXECS.map(x=>`<button class="row" data-asme="${x.id}">${av(x,'s40')}<span class="t"><b>${esc(x.name)}${x.id===S.me?'（いま）':''}</b><small>${esc(x.title)}</small></span></button>`).join('')}</div>`); return; }
   if (d.asme){ S.me = d.asme; try { localStorage.setItem('exec-task-board-me', S.me); } catch(e){} closeSheet(); S.view='my'; render(); toast(`${E(S.me).name}さんとして使っています`); return; }
   if (d.act==='lpwok'){ const v = document.getElementById('lpw').value; if (!v){ toast('パスワードを入れてください'); return; }
     if (v===COMMON_PW){ S.loginStep=1; render(); return; }
-    const p = PEOPLE.find(x=>x.reg && x.pw===v); if (!p){ toast('パスワードが違います'); return; }
-    if (isBlocked(p)){ toast('このアカウントはログインできません。役員に連絡してください'); return; }
-    if (!canUse(p)){ toast('いまは役員・カギ・システムで試しています。使えるようになったらお知らせします'); return; }
-    S.me=p.id; S.screen='app'; S.view='home'; render(); toast(`${p.name} さんでログインしました`); return; }
+    (async()=>{ const h = await pwHash(v); const p = PEOPLE.find(x=>x.reg && (x.pwh===h || (x.pw && x.pw===v))); if (!p){ toast('パスワードが違います'); return; }
+      if (isBlocked(p)){ toast('このアカウントはログインできません。役員に連絡してください'); return; }
+      if (!canUse(p)){ toast('いまは役員・カギ・システムで試しています。使えるようになったらお知らせします'); return; }
+      S.me=p.id; S.screen='app'; S.view='home'; render(); toast(`${p.name} さんでログインしました`); })(); return; }
   if (d.lname){ S.loginName=d.lname; S.loginStep=2; render(); setTimeout(()=>{ const i = document.getElementById('pw1'); if (i) i.focus(); }); return; }
   if (d.act==='pwset'){ const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value;
     if (a.length<8){ toast('パスワードは8文字以上にしてください'); return; } if (a!==b){ toast('2回の入力が合っていません'); return; }
-    if (a===COMMON_PW || PEOPLE.some(x=>x.pw===a)){ toast('このパスワードは使えません。別のものにしてください'); return; }
-    const p = E(S.loginName); p.pw=a; p.reg=true; S.me=p.id; S.screen='app'; S.loginStep=0; S.loginName=null; S.view='my'; render(); toast('登録しました。次からはこのパスワードだけで入れます'); return; }
+    (async()=>{ const h = await pwHash(a); if (a===COMMON_PW || PEOPLE.some(x=>x.pwh===h || (x.pw && x.pw===a))){ toast('このパスワードは使えません。別のものにしてください'); return; }
+      const p = E(S.loginName); if (!p) return; setPw(p.id, h); S.me=p.id; S.screen='app'; S.loginStep=0; S.loginName=null; S.view='my'; render(); toast('登録しました。次からはこのパスワードだけで入れます'); })(); return; }
   if (d.act==='lback'){ S.loginStep=0; render(); return; }
   if (d.act==='lnameback'){ S.loginStep=1; render(); return; }
   if (d.dbgas){ S.me=d.dbgas; S.screen='app'; S.loginStep=0; S.view='home'; render(); window.scrollTo(0,0); toast(`デバッグ用に${E(S.me).name}さん（${roleText(E(S.me))}）で入りました`); return; }
@@ -2332,7 +2309,7 @@ document.addEventListener('click', e=>{
     refreshExecs(); closeSheet(); render(); toast(`${p.name}さんの役職を「${before}」から「${roleText(p)}」に変えました`); return; }
   if (d.reset){ const p = E(d.reset); sheet(`${head('パスワードをリセットしますか？')}<p style="margin:0;color:var(--ink3)">${esc(p.name)}さんは、次から共通パスワードで入り、もう一度自分のパスワードを決めます。</p>
     <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-doreset="${p.id}">リセットする</button></div>`); return; }
-  if (d.doreset){ const p = E(d.doreset); p.pw=null; p.reg=false; closeSheet(); render(); toast(`${p.name}さんのパスワードをリセットしました`); return; }
+  if (d.doreset){ const p = E(d.doreset); p.pw=null; setPw(p.id, null); closeSheet(); render(); toast(`${p.name}さんのパスワードをリセットしました。次は共通パスワードで入って決め直してもらってください`); return; }
   if (d.act==='new'){ if (!canMake()){ toast('タスクを登録できるのは部長以上（とシステムの人）です'); return; } editSheet(null); return; }
   if (d.act==='wzconfirm'){ wzConfirm(); return; }
   if (d.act==='close'){ closeSheet(); return; }
@@ -2355,7 +2332,7 @@ document.addEventListener('keydown', e=>{
 const DBG_SEQ = ['U','U','D','D','L','R','L','R','TL','TR'], DBG_KEYS = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','a','b'];
 let dbgHist = [], dbgLast = 0, dbgStart = null, dbgTouchAt = 0, dbgKeys = [], dbgKeyAt = 0, dbgTaps = 0, dbgTapAt = 0, logoTaps = 0, logoTapAt = 0;
 /* テスト用の入り方（本番の前に false にして止める） */
-const DBG_ON = true;
+const DBG_ON = false; /* デバッグ用のパスワードなしログイン。本番では必ず false */
 const dbgOpen = () => { if (!DBG_ON || S.screen!=='login') return; dbgHist = []; dbgKeys = []; dbgTaps = 0; S.loginStep='dbg'; render(); };
 const dbgInput = (x0, y0, x1, y1) => {
   if (S.screen!=='login') return; const dx = x1-x0, dy = y1-y0, now = Date.now();
@@ -2782,7 +2759,7 @@ function pushProf(){ if (!DBX) return;
 function pushDoc(path, body){ if (!DBX) return; const j = jkey(body); if (DSYNCED.get(path)===j) return; DSYNCED.set(path, j); const b = JSON.parse(j); dbWrite(path, ()=>DBX.doc(path).set(b)); }
 /* 入力中や、下から出る画面を開いている時は、閉じてから描き直す */
 function liveRender(){
-  if (S.screen!=='app') return;
+  if (S.screen!=='app' && S.screen!=='login') return; /* ログイン画面も、人の一覧が届いたら描き直す */
   const a = document.activeElement;
   if (document.getElementById('scrim') || (a && a.matches && a.matches('input,textarea,select'))){ if (!liveWait){ liveWait = true; setTimeout(()=>{ liveWait = false; liveRender(); }, 900); } return; }
   render();
