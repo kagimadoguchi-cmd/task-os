@@ -1883,7 +1883,12 @@ const NAV0 = [['home','ホーム','home'],['my','マイページ','me']];
 const navList = () => meIsExec() ? [NAV0[0], ['co','事業','bldg'], ['admin','管理','gear'], NAV0[1]] : NAV0;
 function loginHtml(){
   const st = S.loginStep; let body = '';
-  if (st==='dbg'){
+  if (st==='spw'){
+    body = `<h1 id="login-h">スーパー管理者</h1>
+      <div class="field"><label for="spw">管理用パスワード</label><input id="spw" type="password" autocomplete="off"></div>
+      <p class="lg-hint">管理用のパスワードを入れると、だれとしてでも入れる画面が開きます。</p>
+      <button class="btn" data-act="spwok">次へ</button><button class="lg-link" data-act="lback">ログイン画面に戻る</button>`;
+  } else if (st==='dbg'){
     body = `<h1>デバッグ：だれで入りますか？</h1><p class="lg-hint">パスワードなしで、選んだ人として入ります。役職ごとに並んでいます。</p>
       ${ROLE_ORDER.map(r=>{ const l = PEOPLE.filter(p=>p.role===r && canUse(p)); return l.length ? `<div class="lg-grp"><b>${ROLE[r]}<small>${l.length}人</small></b><div class="names">${l.map(p=>`<button data-dbgas="${p.id}">${av(p,'s28')}<span><b>${esc(p.name)}</b><small>${esc(roleText(p))}${p.admin?'・管理者':''}</small></span></button>`).join('')}</div></div>` : ''; }).join('')}
       <button class="lg-link" data-act="lback">ログイン画面に戻る</button>`;
@@ -2269,7 +2274,9 @@ document.addEventListener('click', e=>{
   if (d.act==='cropok'){ if (crop) cropDone(); return; }
   if (d.act==='pfsave'){ keepDraft(); if (blockPII(['pf-goal','pf-vision'])) return;
     PROF[S.me] = {photo:draft.photo, goal:draft.goal.trim(), vision:draft.vision.trim()}; saveProf(); draft = null; closeSheet(); render(); toast('プロフィールを保存しました'); return; }
-  if (d.act==='switch' && DBG_ON){ sheet(`${head('ほかの役員に切り替え')}<p style="margin:0;color:var(--ink3);font-size:13px">ログインの代わりに、だれとして使うかを選びます。</p>
+  if (d.act==='spwok'){ const v = (document.getElementById('spw')||{}).value || ''; if (!v){ toast('管理用パスワードを入れてください'); return; }
+    (async()=>{ const h = await pwHash(v); if (h!==SUPER_PWH){ toast('管理用パスワードが違います'); return; } S.superMode = true; S.loginStep='dbg'; render(); })(); return; }
+  if (d.act==='switch' && S.superMode){ sheet(`${head('ほかの役員に切り替え')}<p style="margin:0;color:var(--ink3);font-size:13px">ログインの代わりに、だれとして使うかを選びます。</p>
     <div class="lst">${EXECS.map(x=>`<button class="row" data-asme="${x.id}">${av(x,'s40')}<span class="t"><b>${esc(x.name)}${x.id===S.me?'（いま）':''}</b><small>${esc(x.title)}</small></span></button>`).join('')}</div>`); return; }
   if (d.asme){ S.me = d.asme; try { localStorage.setItem('exec-task-board-me', S.me); } catch(e){} closeSheet(); S.view='my'; render(); toast(`${E(S.me).name}さんとして使っています`); return; }
   if (d.act==='lpwok'){ const v = document.getElementById('lpw').value; if (!v){ toast('パスワードを入れてください'); return; }
@@ -2343,7 +2350,7 @@ document.addEventListener('input', e=>{
 document.addEventListener('input', e=>{ if (e.target.id==='tc-in'){ e.target.style.height = 'auto'; e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px'; } });
 document.addEventListener('keydown', e=>{
   if (e.key==='Escape') closeSheet();
-  if (e.key==='Enter' && S.screen==='login' && e.target.matches('#lpw,#pw2') && !e.isComposing){ const b = document.querySelector(e.target.id==='lpw'?'[data-act=lpwok]':'[data-act=pwset]'); if (b) b.click(); }
+  if (e.key==='Enter' && S.screen==='login' && e.target.matches('#lpw,#pw2,#spw') && !e.isComposing){ const b = document.querySelector(e.target.id==='lpw'?'[data-act=lpwok]':e.target.id==='spw'?'[data-act=spwok]':'[data-act=pwset]'); if (b) b.click(); }
 });
 /* ---------- デバッグ確認用（本番の前に外す） ----------
    ログイン画面で ①上上下下左右左右とスワイプ→左側→右側をタップ ②PCのキーボードで ↑↑↓↓←→←→AB ③「ログイン」の見出しを5回押す ④「タスクOS」の文字を3回押す
@@ -2351,8 +2358,10 @@ document.addEventListener('keydown', e=>{
 const DBG_SEQ = ['U','U','D','D','L','R','L','R','TL','TR'], DBG_KEYS = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','a','b'];
 let dbgHist = [], dbgLast = 0, dbgStart = null, dbgTouchAt = 0, dbgKeys = [], dbgKeyAt = 0, dbgTaps = 0, dbgTapAt = 0, logoTaps = 0, logoTapAt = 0;
 /* テスト用の入り方（本番の前に false にして止める） */
-const DBG_ON = false; /* デバッグ用のパスワードなしログイン。本番では必ず false */
-const dbgOpen = () => { if (!DBG_ON || S.screen!=='login') return; dbgHist = []; dbgKeys = []; dbgTaps = 0; S.loginStep='dbg'; render(); };
+/* スーパー管理者の入り口：ログイン画面で ↑↑↓↓←→←→BA（PC）か、見出しを3回押す（スマホ）→ 管理用パスワード → だれとしてでも入れる画面 */
+const SUPER_CMD = true;
+const SUPER_PWH = '2557f0504b1df306e79685743dff14bc166790c5d84d8b360ed8d2cde11f3411'; /* 管理用パスワードのハッシュ（パスワードそのものは書かない） */
+const dbgOpen = () => { if (!SUPER_CMD || S.screen!=='login') return; dbgHist = []; dbgKeys = []; dbgTaps = 0; S.loginStep='spw'; render(); setTimeout(()=>{ const i = document.getElementById('spw'); if (i) i.focus(); }); };
 const dbgInput = (x0, y0, x1, y1) => {
   if (S.screen!=='login') return; const dx = x1-x0, dy = y1-y0, now = Date.now();
   const mv = Math.hypot(dx,dy) < 30 ? (x1 < innerWidth/2 ? 'TL' : 'TR') : Math.abs(dx) > Math.abs(dy) ? (dx>0?'R':'L') : (dy>0?'D':'U');
