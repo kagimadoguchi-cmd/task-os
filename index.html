@@ -486,6 +486,17 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sc-b b{font-size:15px;font-weight:900}
 .sc-x{padding:8px}.sc-x svg{width:22px;height:22px}
 .sc-dot{width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 2px #fff}
+.sc-phs{position:absolute;inset:0;z-index:3;pointer-events:none}
+.sc-ph{position:absolute;width:78%;max-height:85%;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:16px;border:2px dashed rgba(255,255,255,.45);background:rgba(0,0,0,.14);color:#fff;overflow:hidden;animation:ph-in .3s cubic-bezier(.2,1.3,.4,1) both;transition:opacity .4s,border-color .3s}
+.sc-ph::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.12) 50%,transparent 70%);background-size:250% 100%;animation:ph-sh 1.4s linear infinite}
+.sc-ph.ok{border-color:#2EBD6B;border-style:solid}
+.sc-ph.ok::before,.sc-ph.ng::before{display:none}
+.sc-ph.ng{border-color:#E5484D;border-style:solid}
+.sc-ph.out{opacity:0}
+.sc-ph small{position:relative;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);white-space:nowrap}
+.sc-ph .sc-ld{background:rgba(0,0,0,.55);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+@keyframes ph-in{from{opacity:0;scale:.85}}
+@keyframes ph-sh{from{background-position:120% 0}to{background-position:-120% 0}}
 .sc-load{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:rgba(0,0,0,.45);animation:sv-m .2s ease-out;transition:opacity .3s}
 .sc-load.out{opacity:0}
 .sc-ld-in{display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 22px;border-radius:20px;background:rgba(20,20,24,.82);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff}
@@ -628,6 +639,9 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sv-pf{display:flex;align-items:center;gap:8px;min-width:0;border:0;background:none;color:#fff;padding:0;font:inherit;text-shadow:inherit;cursor:pointer}
 .sv-pf:active{opacity:.7}
 .sv-pf b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-mpf{flex:none;border:0;background:none;padding:0;color:inherit;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sv-mpf:active{opacity:.6}
+.sv-mnm{font-weight:800;margin-right:6px}
 .sv-dl{border:0;background:rgba(255,255,255,.18);color:#fff;height:32px;padding:0 12px 0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;margin-right:4px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .15s,background .15s}
 .sv-dl:active{transform:scale(.92);background:rgba(255,255,255,.3)}
 .sv-dl svg{width:17px;height:17px;stroke:#fff;stroke-width:2.2;fill:none}
@@ -1812,10 +1826,13 @@ const notifSet = on => { try { const o = JSON.parse(localStorage.getItem(NKEY)||
 const actNew = () => { if (!notifOn()) return 0; const t0 = actSeen(); return actEvents().filter(e=>actMine(e) && e.at > t0).length; };
 /* ❤の右上に未読の数（赤い丸に白い数字）。ホーム画面に追加したアプリのアイコンにも同じ数を出す（対応している端末だけ） */
 let appBadgeN = -1, heartWob = 0;
+/* ホーム画面のアイコンの赤い数字は、アプリを開いたら消す（❤の中の未読は、読むまで残る）。閉じている間に届いた通知で、また増える */
+const badgeClear = () => { if (document.visibilityState!=='visible') return; appBadgeN = -1; appBadge(0); };
+document.addEventListener('visibilitychange', badgeClear); window.addEventListener('pageshow', badgeClear); window.addEventListener('focus', badgeClear);
 const appBadge = n => { if (n===appBadgeN) return; appBadgeN = n; try { if (n > 0 && navigator.setAppBadge) navigator.setAppBadge(n).catch(()=>{}); else if (navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); } catch(e){}
   /* 通知を受け取る係（sw.js）にも本当の未読の数を教える。アプリを閉じている間は、そこから通知のたびに 1 ずつ増える */
   try { navigator.serviceWorker.ready.then(r=>{ if (r.active) r.active.postMessage({type:'badge', n}); }).catch(()=>{}); } catch(e){} };
-const actBtn = cls => { const n = S.view!=='act' ? actNew() : 0; if (!cls) appBadge(S.screen==='app' ? n : 0);
+const actBtn = cls => { const n = S.view!=='act' ? actNew() : 0; if (!cls) appBadge(0);
   return `<button class="top-heart ${cls||''} ${n?'has-new':''} ${Date.now()-heartWob < 400 ? 'wobble' : ''}" data-view="act" ${S.view==='act'?'aria-current="page"':''} aria-label="お知らせ${n ? `（未読 ${n}件）` : ''}">${ic('act')}${n ? `<i class="act-badge num" aria-hidden="true">${n>99?'99+':n}</i>` : ''}</button>`; };
 /* お知らせの画面の上：スマホに届くプッシュ通知の受け取り */
 const pushCard = () => { const ps = pushState();
@@ -2669,17 +2686,42 @@ const saveStLocal = () => { try { localStorage.setItem(SKEY, JSON.stringify(STOR
 const stMarkSeen = id => { if (STSEEN[id]) return; STSEEN[id] = 1; const live = new Set(stLive().map(x=>x.id)); Object.keys(STSEEN).forEach(k=>{ if (!live.has(k)) delete STSEEN[k]; }); try { localStorage.setItem(SSEEN, JSON.stringify(STSEEN)); } catch(e){} };
 /* 画像を選ぶ（動画は選べない） */
 /* 写真をまとめて選ぶ（max 枚まで・選んだ順）。cb には小さくした画像の配列 */
+/* iPhone で写真を選ぶ時、iCloud からの取りこみが終わる前にチェックを押すと、
+   ①選ぶ画面が閉じるまで時間がかかり、その間に入れ物（input）が消えて写真が届かない
+   ②届いた直後はまだ読めず、1回で失敗する ことがある。
+   そこで入れ物を画面に置いたままにし、届くのを待ち、読めない時は少し待って何回か読みなおす */
+let stPickEl = null;
+/* 1枚を読む：読めなければ、待つ時間を少しずつのばして6回まで読みなおす（全部で10秒ほど） */
+const stLoad = (file, onProg) => new Promise(done => { let tries = 0;
+  const once = () => { tries++;
+    const fail = () => { if (tries >= 6){ done(null); return; } onProg(Math.min(.8, .12*tries), true); setTimeout(once, 300*tries); };
+    if (!file || !file.size){ fail(); return; }
+    const rd = new FileReader();
+    rd.onprogress = ev => { if (ev.lengthComputable && ev.total) onProg(.85*ev.loaded/ev.total); };
+    rd.onerror = fail;
+    rd.onload = () => { if (!rd.result || String(rd.result).length < 32){ fail(); return; } onProg(.9);
+      const img = new Image(); img.onload = () => { if (!img.naturalWidth){ fail(); return; } try { done(stShrink(img)); } catch(x){ fail(); } }; img.onerror = fail; img.src = rd.result; };
+    try { rd.readAsDataURL(file); } catch(x){ fail(); } };
+  once(); });
 function stPickMany(max, cb, prog){
-  const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.multiple = true;
-  f.onchange = () => { const all = [...(f.files||[])], fs2 = all.filter(x=>/^image\//.test(x.type));
+  if (stPickEl) stPickEl.remove();
+  const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.multiple = true; f.setAttribute('aria-hidden','true');
+  f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0'; document.body.appendChild(f); stPickEl = f;
+  let took = false;
+  const take = async () => { if (took) return; const all = [...(f.files||[])]; if (!all.length) return; took = true;
+    const fs2 = all.filter(x=>!x.type || x.type.startsWith('image/'));
     if (all.length > fs2.length) toast('ストーリーに出せるのは画像だけです（動画は出せません）');
     if (fs2.length > max) toast(`写真は${max}枚までなので、はじめの${max}枚を使います`);
-    const list = fs2.slice(0, max), out = []; let i = 0; const P = (a, b, c) => { if (prog) try { prog(a, b, c); } catch(x){} };
+    const list = fs2.slice(0, max), out = []; let bad = 0; const P = (x, y, z, q) => { if (prog) try { prog(x, y, z, q); } catch(e){} };
     if (list.length) P('start', list.length);
-    const next = () => { if (i >= list.length){ P('end'); if (out.length) cb(out); return; } const rd = new FileReader(), k = i;
-      rd.onprogress = ev => { if (ev.lengthComputable && ev.total) P(k, .85*ev.loaded/ev.total); };
-      rd.onload = () => { P(k, .9); const img = new Image(); img.onload = () => { const v = stShrink(img); out.push(v); P(k, 1, v); i++; next(); }; img.onerror = () => { toast('読みこめない画像がありました'); P(k, -1); i++; next(); }; img.src = rd.result; }; rd.readAsDataURL(list[i]); };
-    next(); };
+    for (let k = 0; k < list.length; k++){ const v = await stLoad(list[k], (fr, wait)=>P(k, fr, null, wait)); if (v){ out.push(v); P(k, 1, v); } else { bad++; P(k, -1); } }
+    P('end'); f.remove(); if (stPickEl===f) stPickEl = null;
+    if (bad) toast(bad===list.length ? '写真を読みこめませんでした。写真が取りこみ終わってから、もう一度選んでください' : `読みこめない写真が${bad}枚ありました`);
+    if (out.length) cb(out); };
+  f.addEventListener('change', take); f.addEventListener('input', take);
+  /* 選ぶ画面から戻ったのに知らせが来ない時のために、画面に戻ってから少しの間は、届いた写真がないか見ておく */
+  const watch = () => { window.removeEventListener('focus', watch); let n = 0; const iv = setInterval(()=>{ n++; if (took || n > 40){ clearInterval(iv); return; } take(); }, 500); };
+  window.addEventListener('focus', watch);
   f.click();
 }
 function stPick(cb){
@@ -2738,16 +2780,25 @@ function stCompose(opt){
     inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, C.H*.6) + 'px'; };
   const vvFit = () => { const vv = window.visualViewport; if (ed.hidden || !vv){ ed.style.top = ed.style.height = ''; return; } ed.style.top = vv.offsetTop + 'px'; ed.style.height = vv.height + 'px'; };
   if (window.visualViewport){ visualViewport.addEventListener('resize', vvFit); visualViewport.addEventListener('scroll', vvFit); }
-  /* 写真の読みこみの見える化：1枚ずつ、チェックのまわりの輪が満ちていき、終わると写真とチェックが出る */
-  let ldEl = null;
-  const scProg = (k, fr, v) => {
-    if (k==='start'){ if (ldEl) ldEl.remove(); ldEl = document.createElement('div'); ldEl.className = 'sc-load'; ldEl.setAttribute('role','status');
-      ldEl.innerHTML = `<div class="sc-ld-in"><b>写真を読みこみ中…</b><div class="sc-ld-row">${Array.from({length:fr}, (_, i)=>`<span class="sc-ld" data-i="${i}"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="bg" cx="22" cy="22" r="19"/><circle class="fg" cx="22" cy="22" r="19" pathLength="100"/></svg><i>${ic('check')}</i></span>`).join('')}</div></div>`;
-      ov.appendChild(ldEl); return; }
+  /* 写真の読みこみの見える化：写真が入る位置ごとに枠を出し、その中の輪が満ちていく。読めた写真から順に、その場に出てくる */
+  const slot = n => n ? {x:.5 + (n===1 ? .12 : -.12), y:.5 + (n===1 ? .1 : -.1), sc:.6, rot:(n===1 ? .06 : -.06)} : {x:.5, y:.5, sc:1, rot:0};
+  let ldEl = null, ldBase = 0;
+  const scProg = (k, fr, v, wait) => {
+    if (k==='start'){ if (ldEl) ldEl.remove(); ldBase = C.imgs.length; ldEl = document.createElement('div'); ldEl.className = 'sc-phs'; ldEl.setAttribute('role','status'); ldEl.setAttribute('aria-label','写真を読みこみ中');
+      /* 大きさ・位置は画面（台紙）に対する割合で。台紙の大きさが決まる前でも、あとから合う */
+      ldEl.innerHTML = Array.from({length:fr}, (_, i)=>{ const P = slot(ldBase + i);
+        return `<div class="sc-ph" data-i="${i}" style="left:${P.x*100}%;top:${P.y*100}%;transform:translate(-50%,-50%) rotate(${P.rot}rad) scale(${P.sc})"><span class="sc-ld"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="bg" cx="22" cy="22" r="19"/><circle class="fg" cx="22" cy="22" r="19" pathLength="100"/></svg><i>${ic('check')}</i></span><small>${fr > 1 ? `${i+1}枚目　` : ''}読みこみ中…</small></div>`; }).join('');
+      stage.appendChild(ldEl); $('.sc-hint').hidden = true; return; }
     if (!ldEl) return;
-    if (k==='end'){ const el = ldEl; ldEl = null; el.querySelector('b').textContent = '読みこみ完了'; setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 300); }, 700); return; }
-    const sp = ldEl.querySelector(`[data-i="${k}"]`); if (!sp) return; if (fr < 0){ sp.classList.add('ng'); return; }
-    sp.style.setProperty('--p', fr.toFixed(3)); if (fr >= 1){ sp.classList.add('ok'); if (v) sp.style.backgroundImage = `url(${v})`; } };
+    if (k==='end'){ const el = ldEl; ldEl = null; setTimeout(()=>{ el.remove(); draw(); }, 1600); return; }
+    const ph = ldEl.querySelector(`[data-i="${k}"]`); if (!ph) return; const lb = ph.querySelector('small'), no = ldEl.children.length > 1 ? `${k+1}枚目　` : '';
+    if (fr < 0){ ph.classList.add('ng'); lb.textContent = no + '読みこめませんでした'; setTimeout(()=>ph.classList.add('out'), 1400); return; }
+    if (wait && !ph.classList.contains('wait')){ ph.classList.add('wait'); lb.textContent = no + 'iPhone から受け取り中…'; }
+    ph.querySelector('.sc-ld').style.setProperty('--p', fr.toFixed(3));
+    if (fr >= 1 && v){ ph.classList.add('ok'); lb.textContent = no + '完了';
+      /* 読めた写真は、その場ですぐ入れる（ほかの写真を待たない） */
+      const im = new Image(); im.onload = () => { const n = C.imgs.length; if (!n) C.bg = SC_BGS.length-1; C.imgs.push({src:v, el:im, ...slot(n)}); draw(); setTimeout(()=>ph.classList.add('out'), 450); };
+      im.onerror = () => { ph.classList.add('ng'); lb.textContent = no + '読みこめませんでした'; setTimeout(()=>ph.classList.add('out'), 1400); }; im.src = v; } };
   const openEd = k => { cur = k==null ? {text:'', color:'#FFFFFF', box:false, al:'center', font:0, size:9, x:.5, y:.42, rot:0, sc:1, k:null} : {...C.layers[k], k};
     ed.hidden = false; ov.classList.add('editing'); inp.value = cur.text; edPaint(); vvFit(); setTimeout(()=>{ inp.focus({preventScroll:true}); vvFit(); }, 30); };
   const closeEd = () => { const t = inp.value.replace(/\s+$/,''); inp.blur(); ed.hidden = true; ov.classList.remove('editing');
@@ -2794,13 +2845,9 @@ function stCompose(opt){
     else if (b.dataset.bg!=null){ C.bg = +b.dataset.bg; $('.sc-bgs').querySelectorAll('.sc-sw').forEach(x=>x.classList.toggle('on', x===b)); draw(); }
     else if (b.classList.contains('sc-imgb')){ const room = IMG_MAX - C.imgs.length; if (room <= 0){ toast(`写真は${IMG_MAX}枚までです`); return; }
       /* 一度に何枚でも（あと何枚まで）選べる。選んだ順に、1枚目がいちばんうしろ、あとの写真ほど手前 */
-      stPickMany(room, vs=>{ let left = vs.length; vs.forEach((v,idx)=>{ const im = new Image(); im.onload = ()=>{ vs[idx] = {v, im}; if (--left) return;
-        vs.forEach(({v, im})=>{ const n = C.imgs.length; if (!n) C.bg = SC_BGS.length-1;
-          /* 1枚目は画面に収まる大きさ。2枚目からは少し小さく、ずらして置く */
-          C.imgs.push(n ? {src:v, el:im, x:.5 + (n===1 ? .12 : -.12), y:.5 + (n===1 ? .1 : -.1), sc:.6, rot:(n===1 ? .06 : -.06)} : {src:v, el:im, x:.5, y:.5, sc:1, rot:0}); });
-        draw(); }; im.src = v; }); }, scProg); }
+      stPickMany(room, ()=>{}, scProg); }
     else if (b.classList.contains('sc-aa')) openEd(null);
-    else if (b.classList.contains('sc-go')) post(); });
+    else if (b.classList.contains('sc-go')){ if (ldEl){ toast('写真を読みこみ中です。終わってから投稿してください'); return; } post(); } });
   const post = () => { if (!C.imgs.length && !C.layers.length){ toast('画像か文字を入れてください'); return; }
     const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g2 = cv.getContext('2d');
     { const gr = g2.createLinearGradient(0,0,W*.4,H); const b = SC_BGS[C.bg]; b.forEach((c,i)=>gr.addColorStop(i/(b.length-1), c)); g2.fillStyle = gr; g2.fillRect(0,0,W,H); }
@@ -2849,7 +2896,7 @@ const stvLike = x => { const o = stvMine(x.id) || {id:x.id+'__'+S.me, sid:x.id, 
    左にスワイプで次の人（ホーム上の丸い並びの右どなり）、右にスワイプで前の人へ */
 /* ストーリーのチャット（全員が見られる・古い順で、新しいものが下） */
 let svRefresh = null;
-const chatHtml = sid => { const cs = stCmOf(sid); return cs.length ? cs.map(c=>{ const e = E(c.by); return e ? `<div class="sv-m">${av(e,'s28')}<p><b>${esc(e.name)}</b>${esc(c.text)}</p></div>` : ''; }).join('') : '<p class="sv-none">まだコメントはありません</p>'; };
+const chatHtml = sid => { const cs = stCmOf(sid); return cs.length ? cs.map(c=>{ const e = E(c.by); return e ? `<div class="sv-m"><button class="sv-mpf" data-pid="${e.id}" aria-label="${esc(e.name)}のマイページを見る">${av(e,'s28')}</button><p><button class="sv-mpf sv-mnm" data-pid="${e.id}">${esc(e.name)}</button>${esc(c.text)}</p></div>` : ''; }).join('') : '<p class="sv-none">まだコメントはありません</p>'; };
 /* ストーリーの画像を保存。スマホは共有の画面（「画像を保存」で写真に入る）、パソコンはダウンロード。保存中は止める */
 async function stSave(x, ov){ if (!x || !x.img) return; ov.classList.add('typing','hold');
   const d = new Date(x.at), name = `story-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.jpg`;
@@ -2942,7 +2989,7 @@ function stOpen(pid){
     else if (e.target.closest('.svs-x')) closeSheet();
     else if (e.target.closest('.sv-like')){ const b = e.target.closest('.sv-like'), on = stvLike(list[si]); b.classList.toggle('on', on); if (on && navigator.vibrate) try { navigator.vibrate(8); } catch(x){} }
     else if (e.target.closest('.sv-dl')) stSave(list[si], ov);
-    else if (e.target.closest('.sv-pf')){ const id = e.target.closest('.sv-pf').dataset.pid;
+    else if (e.target.closest('.sv-pf,.sv-mpf')){ const id = e.target.closest('.sv-pf,.sv-mpf').dataset.pid;
       if (id===S.me) S.view = 'my'; else { if (S.prof!==id || S.view!=='prof'){ S.pfTab = 'todo'; stepOn(id, S.me); } S.prof = id; S.view = 'prof'; }
       close(); window.scrollTo(0,0); }
     else if (e.target.closest('.sv-x')) close();

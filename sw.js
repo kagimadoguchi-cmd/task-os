@@ -17,7 +17,12 @@ self.addEventListener('message', e => { if (e.data && e.data.type === 'badge') e
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(badgeGet().then(n => badgeSet(n + 1)));
+  /* アプリを開いて見ている時は、アイコンの数は増やさない（開いたら消す決まり） */
+  e.waitUntil((async () => {
+    const cs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (cs.some(c => c.visibilityState === 'visible')) return;
+    await badgeSet((await badgeGet()) + 1);
+  })());
   const title = d.title || 'タスクOS';
   const opt = {
     body: d.body || '',
