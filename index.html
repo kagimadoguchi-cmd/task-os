@@ -642,6 +642,19 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .sv-mpf{flex:none;border:0;background:none;padding:0;color:inherit;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .sv-mpf:active{opacity:.6}
 .sv-mnm{font-weight:800;margin-right:6px}
+.sv-cf{position:absolute;inset:0;z-index:8;display:grid;place-items:center;padding:24px;background:rgba(0,0,0,.55);animation:sv-cf-bg .18s ease-out}
+.sv-cf.out{opacity:0;transition:opacity .18s}
+.sv-cf-in{width:min(300px,100%);border-radius:18px;background:var(--card);color:var(--ink);text-align:center;padding:22px 18px 16px;box-shadow:0 20px 50px rgba(0,0,0,.45);animation:sv-cf-pop .24s cubic-bezier(.2,1.3,.4,1)}
+.sv-cf-th{display:block;width:64px;height:100px;object-fit:cover;border-radius:10px;margin:0 auto 12px}
+.sv-cf-in b{display:block;font-size:16px;font-weight:800}
+.sv-cf-in p{margin:8px 0 16px;font-size:13px;line-height:1.6;color:var(--ink2)}
+.sv-cf-b{display:flex;gap:10px}
+.sv-cf-b button{flex:1;height:44px;border:0;border-radius:12px;font:inherit;font-size:14px;font-weight:800;transition:transform .12s}
+.sv-cf-b button:active{transform:scale(.96)}
+.sv-cf-no{background:var(--sub);color:var(--ink)}
+.sv-cf-ok{background:var(--late);color:#fff}
+@keyframes sv-cf-bg{from{opacity:0}}
+@keyframes sv-cf-pop{from{opacity:0;transform:scale(.9)}}
 .sv-dl{border:0;background:rgba(255,255,255,.18);color:#fff;height:32px;padding:0 12px 0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;margin-right:4px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .15s,background .15s}
 .sv-dl:active{transform:scale(.92);background:rgba(255,255,255,.3)}
 .sv-dl svg{width:17px;height:17px;stroke:#fff;stroke-width:2.2;fill:none}
@@ -2691,17 +2704,23 @@ const stMarkSeen = id => { if (STSEEN[id]) return; STSEEN[id] = 1; const live = 
    ②届いた直後はまだ読めず、1回で失敗する ことがある。
    そこで入れ物を画面に置いたままにし、届くのを待ち、読めない時は少し待って何回か読みなおす */
 let stPickEl = null;
-/* 1枚を読む：読めなければ、待つ時間を少しずつのばして6回まで読みなおす（全部で10秒ほど） */
+/* 1枚を読む。大きな写真（最近の iPhone は数千万画素）でも速く軽く読めるよう、まずファイルを直接画像として読む。
+   だめな時だけ、文字の列に変えて読む前のやり方。それでも読めなければ、待つ時間を少しずつのばして6回まで読みなおす（全部で10秒ほど）。
+   読んだ写真は描きなおして小さくするので、位置情報などの写真の情報は残らない */
+const stDecode = src => new Promise((ok, ng) => { const img = new Image(); img.decoding = 'async';
+  img.onload = () => { if (!img.naturalWidth){ ng(); return; } try { ok(stShrink(img)); } catch(x){ ng(); } }; img.onerror = ng; img.src = src; });
 const stLoad = (file, onProg) => new Promise(done => { let tries = 0;
-  const once = () => { tries++;
+  const viaReader = () => new Promise((ok, ng) => { const rd = new FileReader();
+    rd.onprogress = ev => { if (ev.lengthComputable && ev.total) onProg(.3 + .55*ev.loaded/ev.total); };
+    rd.onerror = ng; rd.onload = () => { if (!rd.result || String(rd.result).length < 32){ ng(); return; } onProg(.9); stDecode(rd.result).then(ok, ng); };
+    try { rd.readAsDataURL(file); } catch(x){ ng(); } });
+  const once = async () => { tries++;
     const fail = () => { if (tries >= 6){ done(null); return; } onProg(Math.min(.8, .12*tries), true); setTimeout(once, 300*tries); };
     if (!file || !file.size){ fail(); return; }
-    const rd = new FileReader();
-    rd.onprogress = ev => { if (ev.lengthComputable && ev.total) onProg(.85*ev.loaded/ev.total); };
-    rd.onerror = fail;
-    rd.onload = () => { if (!rd.result || String(rd.result).length < 32){ fail(); return; } onProg(.9);
-      const img = new Image(); img.onload = () => { if (!img.naturalWidth){ fail(); return; } try { done(stShrink(img)); } catch(x){ fail(); } }; img.onerror = fail; img.src = rd.result; };
-    try { rd.readAsDataURL(file); } catch(x){ fail(); } };
+    onProg(Math.max(.25, .1*tries));
+    let u = null; try { u = URL.createObjectURL(file); } catch(x){}
+    if (u){ try { const v = await stDecode(u); URL.revokeObjectURL(u); done(v); return; } catch(x){ URL.revokeObjectURL(u); } }
+    try { done(await viaReader()); } catch(x){ fail(); } };
   once(); });
 function stPickMany(max, cb, prog){
   if (stPickEl) stPickEl.remove();
@@ -2734,7 +2753,8 @@ function stPick(cb){
 /* 共有の置き場に入る大きさまで小さくする（長い辺 1080px、JPEG） */
 function stShrink(img){
   let side = 1080, q = 0.82, out = '';
-  for (let i=0; i<8; i++){ const k = Math.min(1, side/Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+  const W0 = img.naturalWidth || img.width, H0 = img.naturalHeight || img.height;
+  for (let i=0; i<8; i++){ const k = Math.min(1, side/Math.max(W0, H0)); const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(W0*k)); c.height = Math.max(1, Math.round(H0*k));
     const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0,0,c.width,c.height); g.drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q);
     if (out.length < 230000) break; if (q > 0.55) q -= 0.1; else side = Math.round(side*0.8); }
   return out;
@@ -2948,7 +2968,7 @@ function stOpen(pid){
     /* 足あと・いいねが届いたら、数と一覧も描き直す */
     const ar = ov.querySelector('.sv-actrow'); if (ar) ar.innerHTML = actRowIn(x);
     const sh = ov.querySelector('.sv-sheet:not(.out)'); if (sh){ const st = sh.querySelector('.svs-list').scrollTop; sh.innerHTML = sheetHtml(x); sh.querySelector('.svs-list').scrollTop = st; } const end = ch.scrollTop + ch.clientHeight >= ch.scrollHeight - 8; ch.innerHTML = chatHtml(x.id); if (end) ch.scrollTop = ch.scrollHeight; };
-  ov.addEventListener('pointerdown', e=>{ if (e.target.closest('.sv-sheet')) return; if (ov.classList.contains('sheet')){ down = -1; return; }
+  ov.addEventListener('pointerdown', e=>{ if (e.target.closest('.sv-sheet,.sv-cf')) return; if (ov.classList.contains('sheet')){ down = -1; return; }
     if (e.target.closest('.sv-chat')){ ov.classList.add('hold'); return; } if (e.target.closest('button,.sv-foot')) return; down = Date.now(); held = false; sx = e.clientX; sy = e.clientY; pd = true; dg = false; vy = {y:e.clientY, t:e.timeStamp, v:0}; ov.classList.add('hold'); });
   /* 下にスワイプ：画面が指についてきて、少し小さく・うしろが透ける。はなすと閉じる（少しだけなら元にもどる） */
   ov.addEventListener('pointermove', e=>{ if (!pd || ov.classList.contains('sheet')) return; const dx = e.clientX - sx, dy = e.clientY - sy;
@@ -2956,7 +2976,7 @@ function stOpen(pid){
     const dt = e.timeStamp - vy.t; if (dt > 0){ vy.v = (e.clientY - vy.y)/dt; vy.y = e.clientY; vy.t = e.timeStamp; }
     dgY = Math.max(0, dy); if (!dgRaf) dgRaf = requestAnimationFrame(()=>{ dgRaf = 0; const el = ov.querySelector('.sv-in'); if (!el) return; const k = Math.min(1, dgY/innerHeight);
       el.style.transform = `translate3d(0,${dgY}px,0) scale(${1 - .22*k})`; el.style.borderRadius = Math.round(Math.min(24, dgY/4)) + 'px'; ov.style.backgroundColor = `rgba(0,0,0,${(1 - Math.min(.9, k*1.6)).toFixed(3)})`; }); });
-  ov.addEventListener('pointerup', e=>{ if (e.target.closest('.sv-sheet')) return;
+  ov.addEventListener('pointerup', e=>{ if (e.target.closest('.sv-sheet,.sv-cf')) return;
     /* 一覧が出ている時に、上の画像のところを押したら一覧を閉じる */
     if (ov.classList.contains('sheet')){ if (down === -1) closeSheet(); down = 0; return; }
     if (dg){ pd = dg = false; const dy = e.clientY - sy; if (dy > innerHeight*.18 || (vy.v > .5 && dy > 30)) dragClose(); else dragBack(); return; } pd = false;
@@ -2993,8 +3013,17 @@ function stOpen(pid){
       if (id===S.me) S.view = 'my'; else { if (S.prof!==id || S.view!=='prof'){ S.pfTab = 'todo'; stepOn(id, S.me); } S.prof = id; S.view = 'prof'; }
       close(); window.scrollTo(0,0); }
     else if (e.target.closest('.sv-x')) close();
-    else if (e.target.closest('.sv-del')){ const x = list[si]; stDelete(x.id); toast('ストーリーを削除しました'); list = stOfP(q[pi]); if (!list.length) return close(); si = Math.min(si, list.length-1); show(); } });
-  const key = e => { if (e.target.closest && e.target.closest('.sv-inp')) return; if (e.key==='Escape' && ov.querySelector('.sv-sheet')) closeSheet(); else if (e.key==='Escape') close(); else if (e.key==='ArrowRight') go(1); else if (e.key==='ArrowLeft') go(-1); };
+    else if (e.target.closest('.sv-del')) askDel();
+    else if (e.target.closest('.sv-cf-no') || (e.target.classList && e.target.classList.contains('sv-cf'))) cfClose();
+    else if (e.target.closest('.sv-cf-ok')){ const x = list[si]; const cf = ov.querySelector('.sv-cf'); if (cf) cf.remove(); stDelete(x.id); toast('ストーリーを削除しました'); list = stOfP(q[pi]); if (!list.length) return close(); si = Math.min(si, list.length-1); show(); } });
+  /* 削除の前に、本当に消していいか聞く。聞いている間はストーリーを止める */
+  const askDel = () => { if (ov.querySelector('.sv-cf')) return; const x = list[si];
+    const cf = document.createElement('div'); cf.className = 'sv-cf'; cf.setAttribute('role','alertdialog'); cf.setAttribute('aria-modal','true'); cf.setAttribute('aria-labelledby','sv-cf-t');
+    cf.innerHTML = `<div class="sv-cf-in">${x.img ? `<img class="sv-cf-th" src="${x.img}" alt="">` : ''}<b id="sv-cf-t">このストーリーを削除しますか？</b><p>削除すると元にもどせません。ついたコメントや見た人の記録も消えます。</p><div class="sv-cf-b"><button class="sv-cf-no">キャンセル</button><button class="sv-cf-ok">削除する</button></div></div>`;
+    ov.querySelector('.sv-in').appendChild(cf); ov.classList.add('typing','hold'); setTimeout(()=>{ const b = cf.querySelector('.sv-cf-no'); if (b) b.focus({preventScroll:true}); }, 30); };
+  const cfClose = () => { const cf = ov.querySelector('.sv-cf'); if (!cf) return; cf.classList.add('out'); setTimeout(()=>cf.remove(), 180);
+    if (!ov.classList.contains('sheet') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.sv-inp'))) ov.classList.remove('typing','hold'); };
+  const key = e => { if (e.target.closest && e.target.closest('.sv-inp')) return; if (e.key==='Escape' && ov.querySelector('.sv-cf')) cfClose(); else if (e.key==='Escape' && ov.querySelector('.sv-sheet')) closeSheet(); else if (e.key==='Escape') close(); else if (e.key==='ArrowRight') go(1); else if (e.key==='ArrowLeft') go(-1); };
   document.addEventListener('keydown', key);
   show();
 }
