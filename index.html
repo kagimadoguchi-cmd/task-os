@@ -1739,7 +1739,7 @@ function myHtml(){
     <div class="bio"><b>${esc(e.name)}${isExecP(e)?VF:''}</b><small>${esc(roleText(e))}<br>担当：${esc(e.area)}</small>
       ${pf.goal?`<p class="goal"><em>目標</em>${esc(pf.goal)}</p>`:''}${pf.vision?`<p class="goal"><em>ありたい姿</em>${esc(pf.vision)}</p>`:''}
       ${!pf.goal && !pf.vision ? '<p class="goal" style="color:var(--ink3)">「プロフィールを編集」から、目標やありたい姿を書けます。</p>' : ''}</div>
-    <div class="mybtns"><button class="pb" data-act="pfedit">プロフィールを編集</button>${isExecP(e)?`<button class="pb" data-act="foot">足あと<small class="num">${(FOOT[e.id]||[]).length}</small></button>`:''}<button class="pb" data-act="logout">ログアウト</button></div>
+    <div class="mybtns"><button class="pb" data-act="pfedit">プロフィールを編集</button>${isExecP(e)?`<button class="pb" data-act="foot">足あと<small class="num">${(FOOT[e.id]||[]).length}</small></button>`:''}</div>
     ${pageTabs(e,true)}`;
 }
 /* プロフィールの編集：写真（ずらす・大きさを変えて丸く切り取る）・目標・ありたい姿。名前は変えられない */
