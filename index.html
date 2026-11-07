@@ -1933,7 +1933,9 @@ function peekHtml(p){
   return `<div class="col" style="transform:translateY(${-(p.y||0)}px)"><header class="top gut ttl-top"><span class="tt-sd"></span><span class="ttl"><span class="tt-k">タスク</span><span class="lr">O</span><span class="lb">S</span></span><span class="tt-sd"></span></header>${html}</div>`;
 }
 let sw = null;
-document.addEventListener('touchstart', e=>{ sw = null;
+document.addEventListener('touchstart', e=>{
+  /* 前のスワイプが終わらないまま残っていたら（iPhone はホーム画面にもどる時に何の合図も送らないことがある）、先に片づける */
+  if ((sw && sw.on) || document.querySelector('.sc.sc-slide:not(.sw-going)')) swAbort(); sw = null;
   /* ホームでは右にスワイプでストーリー作成（インスタと同じ）。ほかの画面では、ひとつ前の画面にもどる */
   const st = S.view==='home';
   if (S.screen!=='app' || e.touches.length!==1 || (!st && !HIST.length) || document.getElementById('scrim') || document.querySelector('.sv,.sc')) return;
@@ -1964,14 +1966,31 @@ document.addEventListener('touchend', ()=>{ if (!sw || !sw.on){ sw = null; retur
   if (g.st){ if (g.raf){ cancelAnimationFrame(g.raf); g.raf = 0; }
     const ez = 'cubic-bezier(.22,.8,.3,1)', ms = Math.round(180 + 140*(go ? 1 - g.dx/innerWidth : g.dx/innerWidth));
     g.sc.ov.style.transition = `transform ${ms}ms ${ez}`; g.shell.style.transition = `transform ${ms}ms ${ez},border-radius ${ms}ms`; g.shell.style.setProperty('--ms', ms+'ms'); g.shell.classList.add('sw-anim');
+    g.sc.ov.classList.add('sw-going'); /* はなしたあとの動きの途中（片づけの対象にしない） */
     const pull = g.sc.ov.querySelector('.sc-pull'); if (pull) pull.classList.add(go ? 'gone' : 'back');
     g.sc.ov.style.transform = go ? 'translate3d(0,0,0)' : 'translate3d(-100%,0,0)'; g.shell.style.transform = go ? `translate3d(${innerWidth}px,0,0) scale(.92)` : 'translate3d(0,0,0) scale(1)'; g.shell.style.setProperty('--dim', go ? '.35' : '0'); g.shell.style.borderRadius = go ? '22px' : '0';
     setTimeout(()=>{ g.shell.classList.remove('swiping','sw-anim'); ['transform','transition','borderRadius','transformOrigin'].forEach(k=>g.shell.style[k] = ''); g.shell.style.removeProperty('--dim'); g.shell.style.removeProperty('--ms'); g.sc.ov.style.transition = '';
       /* 開ききったあと sc-slide を外すと、.sc の出てくるアニメ（透明→不透明）がもう一度かかり、うしろのホームが一瞬見える。アニメは切っておく */
-      if (pull) pull.remove(); if (go){ g.sc.ov.style.animation = 'none'; g.sc.ov.style.transform = ''; g.sc.ov.classList.remove('sc-slide'); } else g.sc.close(); }, ms + 20); return; }
+      if (pull) pull.remove(); g.sc.ov.classList.remove('sw-going'); if (go){ g.sc.ov.style.animation = 'none'; g.sc.ov.style.transform = ''; g.sc.ov.classList.remove('sc-slide'); } else g.sc.close(); }, ms + 20); return; }
   g.shell.style.transition = g.pk.style.transition = 'transform .22s ease-out';
   g.shell.style.transform = go ? `translateX(${innerWidth}px)` : 'translateX(0)'; g.pk.style.transform = go ? 'translateX(0)' : 'translateX(-30%)';
   setTimeout(()=>{ g.pk.remove(); if (go) goBack(); else { g.shell.classList.remove('swiping'); g.shell.style.transform = g.shell.style.transition = ''; } }, 230); }, {passive:true});
+/* スワイプの途中でホーム画面にもどる・電話が来るなどで中断されたとき（iPhone は touchend を送らない）は、すぐ元の画面にもどす。
+   作成画面が端に残らないように、途中のままのものも片づける */
+function swAbort(){ const g = sw; sw = null;
+  if (g && g.on){ if (g.raf) cancelAnimationFrame(g.raf); if (g.st && g.sc) g.sc.close(); if (g.pk) g.pk.remove(); }
+  document.querySelectorAll('.sc.sc-slide').forEach(ov=>{ const c = ov.querySelector('.sc-x'); if (c) c.click(); else ov.remove(); });
+  const shell = document.querySelector('.shell');
+  if (shell && shell.classList.contains('swiping')){ shell.classList.remove('swiping','sw-anim'); ['transform','transition','borderRadius','transformOrigin'].forEach(k=>shell.style[k] = ''); shell.style.removeProperty('--dim'); shell.style.removeProperty('--ms'); }
+  if (!document.querySelector('.sc')) document.body.style.overflow = ''; }
+document.addEventListener('touchcancel', ()=>{ if (sw && sw.on) swAbort(); else sw = null; }, {passive:true});
+/* アプリを離れた時・もどってきた時：途中のスワイプや、端に残った作成画面を片づける */
+const swStuck = () => (sw && sw.on) || !!document.querySelector('.sc.sc-slide:not(.sw-going)') || !!document.querySelector('.shell.swiping:not(.sw-anim)');
+const swCheck = () => { if (swStuck()) swAbort(); };
+document.addEventListener('visibilitychange', swCheck);
+window.addEventListener('pagehide', swCheck);
+window.addEventListener('pageshow', swCheck);
+window.addEventListener('focus', swCheck);
 function render(){
   /* ログイン画面は固定（画面ごと動かない）。名前が多くて入りきらない画面だけ、中で上下に動く */
   document.body.classList.toggle('login-lock', S.screen==='login');
@@ -2414,6 +2433,8 @@ document.addEventListener('touchmove', e=>{ if (!pt) return; const t = e.touches
   ptrSet(pt.d, k);
   if (ready && !ptr.classList.contains('ready')){ ptr.classList.add('ready'); ptrText('はなして更新！'); if (navigator.vibrate) try { navigator.vibrate(10); } catch(e){} }
   else if (!ready && ptr.classList.contains('ready')){ ptr.classList.remove('ready'); ptrText('引っぱって更新'); } }, {passive:false});
+/* 引っぱっている途中で中断されたら（ホーム画面にもどったなど）、更新せずに元へもどす */
+document.addEventListener('touchcancel', ()=>{ if (pt && pt.on){ ptr.classList.add('back'); ptrSet(0, 0); ptr.classList.remove('ready'); } pt = null; }, {passive:true});
 document.addEventListener('touchend', ()=>{ if (!pt || !pt.on){ pt = null; return; } const g = pt; pt = null;
   ptr.classList.add('back');
   if (g.d < PTR_GO){ ptrSet(0, 0); ptr.classList.remove('ready'); return; }
