@@ -643,6 +643,15 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .avr .av{border:2px solid var(--card)}
 .al-n{margin:4px 16px 8px;font-size:13px;color:var(--ink3)}
 .alist{display:flex;flex-direction:column;gap:8px;padding:0 16px 16px}
+.al-open{display:flex;align-items:center;gap:10px;flex:1;min-width:0;border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.al-acts{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;margin:-6px -4px -6px 0;padding-left:8px;border-left:1px solid var(--line)}
+.al-acts button{position:relative;width:38px;height:34px;border:0;background:none;padding:0;display:grid;place-items:center;color:var(--ink)}
+.al-acts svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.9;fill:none;transition:transform .15s}
+.al-acts button:active svg{transform:scale(.85)}
+.al-acts .num{position:absolute;right:0;top:1px;font-size:10px;font-weight:800;color:var(--ink2)}
+.al-acts .liked{color:var(--heart)}
+.al-acts .liked svg{fill:currentColor}
+.al-acts .saved svg{fill:#F5C518;stroke:#111}
 .al-row.hit{animation:al-hit 2.2s ease-out}
 @keyframes al-hit{0%,35%{box-shadow:inset 4px 0 0 var(--sc),0 0 0 3px var(--sc),var(--sh)}100%{box-shadow:inset 4px 0 0 var(--sc),0 0 0 3px transparent,var(--sh)}}
 .al-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-radius:var(--r-md);background:var(--card);box-shadow:inset 4px 0 0 var(--sc),var(--sh);padding:12px 12px 12px 16px;font:inherit;color:inherit;cursor:pointer}
@@ -1686,10 +1695,12 @@ function listHtml(lf){
 const alLeft = t => t.status==='done' ? '<small class="left">完了</small>' : diff(t.due)<0 ? `<small class="left ng">${-diff(t.due)}日超過</small>` : diff(t.due)===0 ? '<small class="left warn">今日まで</small>' : `<small class="left ${diff(t.due)<=3?'warn':''}">残り${diff(t.due)}日</small>`;
 function alRows(list){
   return `<div class="alist">${list.map(t=>{ const k = stOf(t), st = STATUS[k], o = EP(t.owner);
-    return `<button class="al-row" data-open="${t.id}" style="--sc:${st.c}"><span class="al-st">${st.l}</span>
+    /* 行を押すと内容。右はしのハート（いいね）・しおり（注目）はその場で押せる */
+    return `<div class="al-row" data-open="${t.id}" style="--sc:${st.c}"><button class="al-open" data-open="${t.id}"><span class="al-st">${st.l}</span>
       <span class="al-main"><b>${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(EP(t.taker).name)}`:''}</small>
         <span class="al-bar"><i style="width:${t.prog}%"></i></span></span>
-      <span class="al-r"><b class="num">${t.prog}%</b>${alLeft(t)}</span></button>`; }).join('')}</div>`;
+      <span class="al-r"><b class="num">${t.prog}%</b>${alLeft(t)}</span></button>
+      <span class="al-acts"><button data-like="${t.id}" class="${(t.likedBy||[]).includes(S.me)?'liked':''}" aria-label="いいね">${ic('heart')}${t.likes?`<span class="num">${t.likes}</span>`:''}</button><button data-save="${t.id}" class="${isSaved(t)?'saved':''}" aria-label="注目にする">${ic('save')}</button></span></div>`; }).join('')}</div>`;
 }
 /* タイムライン：着手した日から期限までを横の棒で（未着手は期限の日だけ）。1日＝28px。左に役員とタスク名、縦の赤い線が今日 */
 function tlHtml(src){
@@ -2582,7 +2593,7 @@ const TAP_MOVE = 8, TAP_WAIT = 110;
 const tapAim = (c, e) => { const b = c.getBoundingClientRect(), x = (e.clientX-b.left)/b.width, y = (e.clientY-b.top)/b.height;
   c.style.setProperty('--mx', (x*100).toFixed(1)+'%'); c.style.setProperty('--my', (y*100).toFixed(1)+'%');
   c.style.setProperty('--ry', ((x-.5)*10).toFixed(2)+'deg'); c.style.setProperty('--rx', ((.5-y)*10).toFixed(2)+'deg'); };
-document.addEventListener('pointerdown', e=>{ const c = e.target.closest('.panel,.co-c,.al-row'); if (!c || (e.pointerType==='mouse' && e.button!==0)) return;
+document.addEventListener('pointerdown', e=>{ const c = e.target.closest('.panel,.co-c,.al-row'); if (!c || e.target.closest('.al-acts') || (e.pointerType==='mouse' && e.button!==0)) return;
   tapEnd(false); c.classList.remove('card-pop');
   const t = tapCard = {c, x:e.clientX, y:e.clientY, sy:window.scrollY, ev:{clientX:e.clientX, clientY:e.clientY}};
   t.timer = setTimeout(()=>{ if (tapCard!==t) return;
