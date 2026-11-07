@@ -1305,7 +1305,10 @@ const SEE_TOP = {exec:9, super:5, general:5, bucho:5, kacho:4, kakari:4, shunin:
 const ALL_CO = ['exec','super','general','bucho'];
 /* 人。pw は登録済みの人が自分で決めたパスワード（見本）。役員は title（肩書き）・area（担当分野）・color（顔の色）を持つ */
 /* 人の一覧。実在の人は HTML には書かず、管理で追加した人として共有の置き場（Supabase の app/people）に入れる。ここは空のまま */
-const PEOPLE = [];
+const PEOPLE = [
+  /* スーパー管理者：ログイン画面のコマンド＋管理用パスワードでだけ入れる。一覧には出さない（hidden） */
+  {id:'super', name:'スーパー管理者', role:'super', biz:'exec', title:'スーパー管理者', area:'全社', color:'#111418', admin:true, reg:false, pw:null, hidden:true},
+];
 /* 役員は全員、管理者にする */
 PEOPLE.forEach(p=>{ if (p.role==='exec') p.admin = true; });
 const COMMON_PW = '0000'; /* 全員共通の初回用パスワード。はじめての人はこれで入り、自分のパスワードを決める */
@@ -1341,7 +1344,7 @@ mergeAdded(ADDP);
 const NHKEY = 'exec-task-board-hide-v2';
 let HIDEP; try { HIDEP = JSON.parse(localStorage.getItem(NHKEY)) || []; } catch(e){ HIDEP = []; }
 const saveAdded = () => { try { localStorage.setItem(NPKEY, JSON.stringify(ADDP)); localStorage.setItem(NHKEY, JSON.stringify(HIDEP)); } catch(e){} pushDoc('app/people', {list:ADDP, hide:HIDEP}); };
-const canUse = p => !!p && !isBlocked(p) && !HIDEP.includes(p.id) && (!EXEC_ONLY || p.role==='exec' || TRIAL_BIZ.includes(p.biz) || TRIAL.includes(p.id) || !!p.added);
+const canUse = p => !!p && !isBlocked(p) && !HIDEP.includes(p.id) && (!p.hidden || p.id===S.me) && (!EXEC_ONLY || p.role==='exec' || p.role==='super' || TRIAL_BIZ.includes(p.biz) || TRIAL.includes(p.id) || !!p.added);
 const roleText = p => p.role==='exec' ? p.title : (p.title && p.title!==ROLE[p.role] ? `${ROLE[p.role]}（${p.title}）` : ROLE[p.role]);
 /* 役員の一覧（上の丸・役員のページなど）。役職を変えたら作り直す */
 let EXECS = [];
@@ -1401,7 +1404,7 @@ const EP = id => E(id) || {id, name:'（いない人）', role:'jimu', biz:'exec
 const nick = e => { const f = e.name.split(' ')[0]; return PEOPLE.some(p=>p!==e && canUse(p) && p.name.split(' ')[0]===f) ? e.name.replace(/\s/g,'') : f; };
 const OFFER_MAX = 1;   /* 1タスクを受けられる人数（あとで変えるときはここ） */
 const HOLD_MAX = 5;    /* 1人が抱えられるタスクの数（あとで変えるときはここ） */
-const isExecP = p => !!p && p.role==='exec';
+const isExecP = p => !!p && (p.role==='exec' || p.role==='super'); /* スーパー管理者は役員と同じ権限 */
 const meIsExec = () => isExecP(E(S.me));
 /* タスクを登録できる人：部長以上（役員・スーパー管理者・総合管理・部長）。例外として、システム開発部門の人は役職に関係なく登録できる */
 const MAKE_BIZ = ['sys'];
@@ -1886,7 +1889,7 @@ function loginHtml(){
   if (st==='spw'){
     body = `<h1 id="login-h">スーパー管理者</h1>
       <div class="field"><label for="spw">管理用パスワード</label><input id="spw" type="password" autocomplete="off"></div>
-      <p class="lg-hint">管理用のパスワードを入れると、だれとしてでも入れる画面が開きます。</p>
+      <p class="lg-hint">管理用のパスワードを入れると、スーパー管理者として入ります。</p>
       <button class="btn" data-act="spwok">次へ</button><button class="lg-link" data-act="lback">ログイン画面に戻る</button>`;
   } else if (st==='dbg'){
     body = `<h1>デバッグ：だれで入りますか？</h1><p class="lg-hint">パスワードなしで、選んだ人として入ります。役職ごとに並んでいます。</p>
@@ -2275,7 +2278,7 @@ document.addEventListener('click', e=>{
   if (d.act==='pfsave'){ keepDraft(); if (blockPII(['pf-goal','pf-vision'])) return;
     PROF[S.me] = {photo:draft.photo, goal:draft.goal.trim(), vision:draft.vision.trim()}; saveProf(); draft = null; closeSheet(); render(); toast('プロフィールを保存しました'); return; }
   if (d.act==='spwok'){ const v = (document.getElementById('spw')||{}).value || ''; if (!v){ toast('管理用パスワードを入れてください'); return; }
-    (async()=>{ const h = await pwHash(v); if (h!==SUPER_PWH){ toast('管理用パスワードが違います'); return; } S.superMode = true; S.loginStep='dbg'; render(); })(); return; }
+    (async()=>{ const h = await pwHash(v); if (h!==SUPER_PWH){ toast('管理用パスワードが違います'); return; } S.superMode = true; S.me='super'; S.screen='app'; S.loginStep=0; S.view='home'; render(); window.scrollTo(0,0); toast('スーパー管理者で入りました'); })(); return; }
   if (d.act==='switch' && S.superMode){ sheet(`${head('ほかの役員に切り替え')}<p style="margin:0;color:var(--ink3);font-size:13px">ログインの代わりに、だれとして使うかを選びます。</p>
     <div class="lst">${EXECS.map(x=>`<button class="row" data-asme="${x.id}">${av(x,'s40')}<span class="t"><b>${esc(x.name)}${x.id===S.me?'（いま）':''}</b><small>${esc(x.title)}</small></span></button>`).join('')}</div>`); return; }
   if (d.asme){ S.me = d.asme; try { localStorage.setItem('exec-task-board-me', S.me); } catch(e){} closeSheet(); S.view='my'; render(); toast(`${E(S.me).name}さんとして使っています`); return; }
