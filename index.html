@@ -829,6 +829,14 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 @keyframes wzback{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
 .wz #f-title{font-size:18px;padding:12px 14px}
 .wz-nav{display:flex;gap:10px;position:sticky;bottom:0;padding:10px 0 4px;background:linear-gradient(transparent,var(--card) 30%)}
+/* 登録前の確認：入力した内容を一覧で見せる */
+.wz-sum{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--sub)}
+.wz-sum div{display:flex;gap:12px;padding:10px 14px;font-size:14px;line-height:1.5}
+.wz-sum div+div{border-top:1px solid var(--line)}
+.wz-sum b{flex:none;width:88px;font-size:12px;color:var(--ink3);padding-top:2px}
+.wz-sum span{flex:1;min-width:0;word-break:break-word;white-space:pre-wrap}
+.wz-sum .big{font-size:16px;font-weight:800}
+.wz-sum-note{margin:10px 2px 0;font-size:12px;color:var(--ink3)}
 .wz-nav .btn{flex:1;padding:12px}
 .wz-nav .btn.ghost{flex:0 0 96px}
 .wz-nav [hidden]{display:none}
@@ -1315,10 +1323,12 @@ const PEOPLE = [
 /* 役員は全員、管理者にする */
 PEOPLE.forEach(p=>{ if (p.role==='exec') p.admin = true; });
 const COMMON_PW = '0000'; /* 全員共通の初回用パスワード（見本） */
-/* いまは役員だけで試す（小さく始める）。全員で使い始めるときは false にする */
+/* いまは一部の部門だけで試す（小さく始める）。全員で使い始めるときは false にする */
 const EXEC_ONLY = true;
-/* 試しに入れる人（役員以外の見え方を確かめるため）。全員で使い始めたら不要 */
-const TRIAL = ['u1','u20','u21','u22','u23'];
+/* 最初に使う部門：役員（role が exec）＋ここに書いた事業部門（カギ・システム）。広げるときはここに足す */
+const TRIAL_BIZ = ['key','sys'];
+/* 試しに入れる人（部門に関係なく個別に使えるようにしたい時に id を書く） */
+const TRIAL = [];
 /* ログイン不可（退職者など）：役員だけが設定できる。この端末に保存 */
 const BKEY = 'exec-task-board-block-v1';
 let BLOCK; try { BLOCK = JSON.parse(localStorage.getItem(BKEY)) || []; } catch(e){ BLOCK = []; }
@@ -1334,7 +1344,7 @@ mergeAdded(ADDP);
 const NHKEY = 'exec-task-board-hide-v1';
 let HIDEP; try { HIDEP = JSON.parse(localStorage.getItem(NHKEY)) || []; } catch(e){ HIDEP = []; }
 const saveAdded = () => { try { localStorage.setItem(NPKEY, JSON.stringify(ADDP)); localStorage.setItem(NHKEY, JSON.stringify(HIDEP)); } catch(e){} pushDoc('app/people', {list:ADDP, hide:HIDEP}); };
-const canUse = p => !!p && !isBlocked(p) && !HIDEP.includes(p.id) && (!EXEC_ONLY || p.role==='exec' || TRIAL.includes(p.id) || !!p.added);
+const canUse = p => !!p && !isBlocked(p) && !HIDEP.includes(p.id) && (!EXEC_ONLY || p.role==='exec' || TRIAL_BIZ.includes(p.biz) || TRIAL.includes(p.id) || !!p.added);
 const roleText = p => p.role==='exec' ? p.title : (p.title && p.title!==ROLE[p.role] ? `${ROLE[p.role]}（${p.title}）` : ROLE[p.role]);
 /* 役員の一覧（上の丸・役員のページなど）。役職を変えたら作り直す */
 let EXECS = [];
@@ -1399,6 +1409,8 @@ const OFFER_MAX = 1;   /* 1タスクを受けられる人数（あとで変え�
 const HOLD_MAX = 5;    /* 1人が抱えられるタスクの数（あとで変えるときはここ） */
 const isExecP = p => !!p && p.role==='exec';
 const meIsExec = () => isExecP(E(S.me));
+/* タスクを登録できる人：部長以上（役員・スーパー管理者・総合管理・部長） */
+const canMake = () => { const p = E(S.me); return !!p && ['exec','super','general','bucho'].includes(p.role); };
 /* 抱えている数＝受けたタスクのうち、未着手・進行中・期限超過のもの */
 const HOLD_STATES = ['todo','doing','late'];
 const heldOf = id => TASKS.filter(t=>t.taker===id && !isPendingReq(t) && HOLD_STATES.includes(stOf(t))).length;
@@ -1634,7 +1646,7 @@ function execsHtml(){
       <small class="num" style="text-align:right;color:var(--ink3)">進行中 ${open.length}${late?`<br><b style="color:var(--late)">超過 ${late}</b>`:''}</small></button>`; }).join('')}</div>`;
 }
 /* その人のタスク：役員は出したもの＋受けたもの、ほかの人は受けたもの */
-const tasksOf = p => VT().filter(t=>!isPendingReq(t) && (t.taker===p.id || (isExecP(p) && t.owner===p.id)));
+const tasksOf = p => VT().filter(t=>!isPendingReq(t) && (t.taker===p.id || t.owner===p.id));
 const likesOf = p => tasksOf(p).reduce((n,t)=>n+t.likes,0);
 const tabBar = (tabs, cur, own) => `<div class="mytabs five" role="tablist">${tabs.map(([k,l,list])=>`<button role="tab" data-${own?'mytab':'pftab'}="${k}" aria-selected="${cur[0]===k}" class="tb-${k}">${l}<small class="num ${k==='req'&&list.length?'req-n':''}">${list.length}</small></button>`).join('')}</div>`;
 function reqListHtml(list){
@@ -1967,7 +1979,7 @@ function render(){
   document.getElementById('app').innerHTML = `<div class="shell">
     <aside class="side"><button class="ttl ttl-side" data-view="list" aria-label="タスク一覧を開く"><span class="tt-k">タスク</span><span class="lr">O</span><span class="lb">S</span></button>
       <nav aria-label="メニュー">${navList().map(([k,l,icn])=>`<button data-view="${k}" ${v===k?'aria-current="page"':''}>${icn==='me'?av(E(S.me),'s28'):ic(icn)}${l}</button>`).join('')}</nav>
-      ${meIsExec()?`<button class="reg" data-act="new">${ic('plus')}タスクを登録</button>`:''}
+      ${canMake()?`<button class="reg" data-act="new">${ic('plus')}タスクを登録</button>`:''}
       <p class="foot">${DBX ? 'データはみんなと共有され、いつも最新になります。' : 'データはこの端末のブラウザに保存されます。'}</p></aside>
     ${actBtn('pc-heart' + (E(S.me).admin && !meIsExec() ? ' with-gear' : ''))}
     ${E(S.me).admin && !meIsExec()?`<button class="top-gear pc-gear" data-view="admin" ${S.view==='admin'?'aria-current="page"':''} aria-label="管理">${ic('gear')}</button>`:''}
@@ -1976,9 +1988,9 @@ function render(){
       ${scopeName() ? `<div class="scope-bar">${ic(scopeX()?'crown':scopeB()?'user':'bldg')}<span><b>${esc(scopeName())}</b>だけを見ています</span><button data-act="unscope">もどる</button></div>` : ''}${body}</div></main></div>
     <nav class="bnav ${navMini?'mini':''}" aria-label="メニュー"><div>
       ${NAV0.slice(0,1).map(([k,l,icn])=>`<button data-view="${k}" ${v===k?'aria-current="page"':''} aria-label="${l}">${ic(icn)}</button>`).join('')}
-      ${meIsExec()?`<button data-view="co" ${v==='co'?'aria-current="page"':''} aria-label="事業">${ic('bldg')}</button>
-      <button class="add" data-act="new" aria-label="タスクを登録"><span>${ic('plain')}</span></button>
-      <button data-view="admin" ${v==='admin'?'aria-current="page"':''} aria-label="管理">${ic('gear')}</button>`:''}
+      ${meIsExec()?`<button data-view="co" ${v==='co'?'aria-current="page"':''} aria-label="事業">${ic('bldg')}</button>`:''}
+      ${canMake()?`<button class="add" data-act="new" aria-label="タスクを登録"><span>${ic('plain')}</span></button>`:''}
+      ${meIsExec()?`<button data-view="admin" ${v==='admin'?'aria-current="page"':''} aria-label="管理">${ic('gear')}</button>`:''}
       <button class="me" data-view="my" ${v==='my'?'aria-current="page"':''} aria-label="マイページ">${av(E(S.me),'s28')}</button>
     </div></nav>`;
   const tl = document.getElementById('tl'); if (tl) tl.scrollLeft = +tl.dataset.x;
@@ -1997,7 +2009,8 @@ function editSheet(id){
     title:`<div class="field"><label for="f-title">タスク名</label><input id="f-title" value="${esc(t.title)}" placeholder="例：中期経営計画の骨子をまとめる"></div>`,
     eo:visField(t),
     co:`<div class="field"><label for="f-co">会社</label><select id="f-co"><option value="">指定なし（全社）</option>${COMPANIES.map(c=>`<option value="${c.k}" ${(t.co||(!id&&scopeCo()?scopeCo().k:''))===c.k?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`,
-    owner:`<div class="field"><label for="f-owner">担当の役員</label><select id="f-owner">${EXECS.map(e=>`<option value="${e.id}" ${t.owner===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select></div>`,
+    /* 出す人：役員の一覧。部長などが登録するときは、自分をいちばん上に入れて選べるようにする */
+    owner:`<div class="field"><label for="f-owner">出す人（担当の役員）</label><select id="f-owner">${(isExecP(E(S.me)) ? EXECS : [E(S.me)].concat(EXECS)).map(e=>`<option value="${e.id}" ${t.owner===e.id?'selected':''}>${esc(e.name)}${isExecP(e)?'':'（自分）'}</option>`).join('')}</select></div>`,
     due:`<div class="field"><label for="f-due">期限</label><input id="f-due" type="date" value="${t.due}"><small class="hint">開始日は、だれかが着手した日になります</small></div>`,
     st:`<div class="field"><label>状態</label><div class="seg">${['todo','doing','done'].map(k=>`<label><input type="radio" name="f-st" value="${k}" ${t.status===k?'checked':''}>${STATUS[k].l}</label>`).join('')}</div></div>`,
     pr:`<div class="field"><label>優先度</label><div class="seg">${['high','mid','low'].map(k=>`<label><input type="radio" name="f-pr" value="${k}" ${t.prio===k?'checked':''}>${PRIO[k]}</label>`).join('')}</div></div>`,
@@ -2016,7 +2029,8 @@ function editSheet(id){
       <section class="wz-step" data-step="4" data-q="いつまでにやりますか？">${F.due}${F.pr}</section>
       <section class="wz-step" data-step="5" data-q="いまどんな状態ですか？">${F.st}${F.prog}</section>
       <section class="wz-step" data-step="6" data-q="くわしく書きますか？">${F.desc}${F.note}</section>
-      <div class="wz-nav"><button class="btn ghost" data-act="wzprev">戻る</button><button class="btn" data-act="wznext">次へ</button><button class="btn" data-savetask="">登録する</button></div>
+      <section class="wz-step" data-step="7" data-q="この内容で投稿しますか？"><div class="wz-sum" id="wz-sum"></div><p class="wz-sum-note">直したいところがあれば「戻る」で前の質問にもどれます</p></section>
+      <div class="wz-nav"><button class="btn ghost" data-act="wzprev">戻る</button><button class="btn" data-act="wznext">次へ</button><button class="btn" data-act="wzconfirm">内容を確認</button><button class="btn" data-savetask="">投稿する</button></div>
     </div>`);
     wzShow(1); return;
   }
@@ -2038,12 +2052,12 @@ function editSheet(id){
 const visSave = () => { const box = document.getElementById('f-vis'), v = visRead();
   if (box.dataset.had==='0' && box.dataset.init===v.r+'|'+v.m) return {execOnly:false};
   return v.r==='exec' ? {execOnly:true, vis:null} : {execOnly:false, vis:v}; };
-const WZ_N = 6;
+const WZ_N = 6, WZ_C = 7; /* 質問は6つ。7つめは登録前の確認 */
 /* 公開する範囲の欄：「役職」と「のみ／まで」をタブで選ぶ */
 function visField(t){
   const v0 = t.vis || (t.execOnly ? {r:'exec', m:'only'} : {r:'jimu', m:'upto'}), v = {r:v0.r, m:v0.r==='exec' ? 'only' : 'upto'}, had = t.vis ? '1' : t.execOnly ? 'eo' : (t.id ? '0' : '1');
   return `<div class="field vis" id="f-vis" data-had="${had}" data-init="${v.r}|${v.m}"><span class="lb">どの役職まで見せますか（役員から見て）</span>
-    <div class="seg vis-r">${VIS_ROLES.map(k=>`<label><input type="radio" name="f-vr" value="${k}" ${v.r===k?'checked':''}>${ROLE[k]}</label>`).join('')}</div>
+    <div class="seg vis-r">${(meIsExec() ? VIS_ROLES : VIS_ROLES.filter(k=>k!=='exec')).map(k=>`<label><input type="radio" name="f-vr" value="${k}" ${v.r===k?'checked':''}>${ROLE[k]}</label>`).join('')}</div>
     <p class="vis-t" id="f-vist">${visDesc(v)}</p></div>`;
 }
 const visDesc = v => v.r==='exec' ? '役員だけが見られます。役員以外には出ません'
@@ -2054,7 +2068,7 @@ document.addEventListener('change', e=>{ if (!e.target.closest || !e.target.clos
 const wzOk = k => k===1 ? !!(document.getElementById('f-title')||{}).value.trim() : k===4 ? !!(document.getElementById('f-due')||{}).value : true;
 function wzUpdate(){
   const wz = document.getElementById('wz'); if (!wz) return;
-  const k = +wz.dataset.step, pct = Math.round(((k-1) + (wzOk(k)?1:0)) / WZ_N * 100);
+  const k = +wz.dataset.step, pct = k>=WZ_C ? 100 : Math.round(((k-1) + (wzOk(k)?1:0)) / WZ_N * 100);
   wz.querySelector('.wz-bar i').style.width = pct+'%';
   wz.querySelector('.wz-pct').textContent = pct+'%';
   wz.classList.toggle('full', pct===100);
@@ -2063,11 +2077,12 @@ function wzShow(k){
   const wz = document.getElementById('wz'); if (!wz) return;
   const back = k < +wz.dataset.step; wz.dataset.step = k;
   wz.querySelectorAll('.wz-step').forEach(sec=>{ const on = +sec.dataset.step===k; sec.hidden = !on; if (on){ sec.classList.remove('in','back'); void sec.offsetWidth; sec.classList.add('in'); sec.classList.toggle('back', back); } });
-  wz.querySelector('.wz-n').textContent = `${k}／${WZ_N}`;
+  wz.querySelector('.wz-n').textContent = k>=WZ_C ? '確認' : `${k}／${WZ_N}`;
   wz.querySelector('.wz-t').textContent = wz.querySelector(`.wz-step[data-step="${k}"]`).dataset.q;
   wz.querySelector('[data-act="wzprev"]').hidden = k===1;
-  wz.querySelector('[data-act="wznext"]').hidden = k===WZ_N;
-  wz.querySelector('[data-savetask]').hidden = k!==WZ_N;
+  wz.querySelector('[data-act="wznext"]').hidden = k>=WZ_N;
+  wz.querySelector('[data-act="wzconfirm"]').hidden = k!==WZ_N;
+  wz.querySelector('[data-savetask]').hidden = k!==WZ_C;
   const sc = document.querySelector('#scrim .sheet'); if (sc) sc.scrollTop = 0;
   if (k===1) setTimeout(()=>{ const i = document.getElementById('f-title'); if (i) i.focus(); });
   wzUpdate();
@@ -2078,6 +2093,21 @@ function wzNext(){
   if (k===1 && blockPII(['f-title'])) return;
   if (k===4 && !wzOk(4)){ toast('期限を入れてください'); return; }
   wzShow(Math.min(WZ_N, k+1));
+}
+/* 最後の質問のあと：入力した内容を一覧にして見せる。「投稿する」で登録、「戻る」で直せる */
+function wzConfirm(){
+  const $ = id => document.getElementById(id); if (!$('wz')) return;
+  const title = $('f-title').value.trim(); if (!title){ toast('タスク名を入れてください'); wzShow(1); return; }
+  if (!$('f-due').value){ toast('期限を入れてください'); wzShow(4); return; }
+  if (blockPII(['f-title','f-desc','f-note'])) return;
+  const sel = id => { const s = $(id); return s && s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent : ''; };
+  const st = (document.querySelector('input[name="f-st"]:checked')||{}).value || 'todo', pr = (document.querySelector('input[name="f-pr"]:checked')||{}).value || 'mid';
+  const v = visRead(), due = $('f-due').value, prog = st==='done' ? 100 : +$('f-prog').value;
+  const row = (k, val, cls) => val ? `<div><b>${k}</b><span class="${cls||''}">${esc(val)}</span></div>` : '';
+  $('wz-sum').innerHTML = row('タスク名', title, 'big') + row('見せる範囲', v.r==='exec' ? '役員のみ' : ROLE[v.r]+'まで') + row('会社', sel('f-co')) + row('出す人', sel('f-owner'))
+    + row('期限', `${ymd(due)}${diff(due)>=0 ? `（あと${diff(due)}日）` : '（過ぎています）'}`) + row('優先度', PRIO[pr]) + row('状態', `${STATUS[st].l}・${prog}%`)
+    + row('内容', $('f-desc').value.trim()) + row('メモ', $('f-note').value.trim());
+  wzShow(WZ_C);
 }
 document.addEventListener('input', e=>{ if (e.target.closest && e.target.closest('#wz')) wzUpdate(); });
 document.addEventListener('keydown', e=>{ if (e.key==='Enter' && e.target.id==='f-title' && document.getElementById('wz') && !e.isComposing){ e.preventDefault(); wzNext(); } });
@@ -2241,7 +2271,7 @@ document.addEventListener('click', e=>{
     if (v===COMMON_PW){ S.loginStep=1; render(); return; }
     const p = PEOPLE.find(x=>x.reg && x.pw===v); if (!p){ toast('パスワードが違います'); return; }
     if (isBlocked(p)){ toast('このアカウントはログインできません。役員に連絡してください'); return; }
-    if (!canUse(p)){ toast('いまは役員だけで試しています。使えるようになったらお知らせします'); return; }
+    if (!canUse(p)){ toast('いまは役員・カギ・システムで試しています。使えるようになったらお知らせします'); return; }
     S.me=p.id; S.screen='app'; S.view='home'; render(); toast(`${p.name} さんでログインしました`); return; }
   if (d.lname){ S.loginName=d.lname; S.loginStep=2; render(); setTimeout(()=>{ const i = document.getElementById('pw1'); if (i) i.focus(); }); return; }
   if (d.act==='pwset'){ const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value;
@@ -2294,7 +2324,8 @@ document.addEventListener('click', e=>{
   if (d.reset){ const p = E(d.reset); sheet(`${head('パスワードをリセットしますか？')}<p style="margin:0;color:var(--ink3)">${esc(p.name)}さんは、次から共通パスワードで入り、もう一度自分のパスワードを決めます。</p>
     <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-doreset="${p.id}">リセットする</button></div>`); return; }
   if (d.doreset){ const p = E(d.doreset); p.pw=null; p.reg=false; closeSheet(); render(); toast(`${p.name}さんのパスワードをリセットしました`); return; }
-  if (d.act==='new'){ if (!meIsExec()){ toast('タスクを登録できるのは役員だけです'); return; } editSheet(null); return; }
+  if (d.act==='new'){ if (!canMake()){ toast('タスクを登録できるのは部長以上です'); return; } editSheet(null); return; }
+  if (d.act==='wzconfirm'){ wzConfirm(); return; }
   if (d.act==='close'){ closeSheet(); return; }
 });
 document.addEventListener('change', e=>{ if (e.target.id==='pf-file'){ cropStart(e.target.files[0]); e.target.value=''; } });
