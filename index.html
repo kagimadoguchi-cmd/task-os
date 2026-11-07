@@ -323,6 +323,27 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .eo-ck span{display:flex;flex-direction:column;gap:2px}
 .eo-ck b{font-size:14px}.eo-ck small{font-size:12px;color:var(--ink3)}
 .tg.eo{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.ap-box{margin:8px 16px 14px;padding:12px;border-radius:18px;background:var(--sub);display:flex;flex-direction:column;gap:10px}
+.ap-box h3{margin:0 2px;font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+.ap-box h3 b{min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--badge);color:#fff;font-size:12px;display:inline-grid;place-items:center}
+.ap-card{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:12px;display:flex;flex-direction:column;gap:10px}
+.ap-main{display:flex;flex-direction:column;gap:6px;border:0;background:none;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.ap-who{display:flex;align-items:center;gap:8px;font-size:13px}
+.ap-who small{color:var(--ink3);font-size:11px}
+.ap-t{font-size:15px;font-weight:800;line-height:1.4}
+.ap-m{font-size:12px;color:var(--ink2)}
+.ap-b{display:flex;gap:8px}
+.ap-b .btn{flex:1;height:40px;min-height:0;padding:0 10px;font-size:14px}
+.ap-note{margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#FFF4D6;color:#5A4300;font-size:13px;line-height:1.6}
+.ap-note .ap-b{margin-top:10px}
+.ap-note.ng{background:#FBE7E4;color:#7A1F14}
+.tg.ap{background:#FFF4D6;color:#7A5A00;border-color:#F1D27A}
+.tg.apng{background:#FBE7E4;color:#9A2A1C;border-color:#F0B5AC}
+.eo-m.ap-m2{background:#E0A800;color:#fff}
+.eo-m.apng-m{background:var(--late);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ap-note{background:#3A3016;color:#F5DFA0}:root:not([data-theme="light"]) .ap-note.ng{background:#3D1F1B;color:#F3B9B0}}
+:root[data-theme="dark"] .ap-note{background:#3A3016;color:#F5DFA0}
+:root[data-theme="dark"] .ap-note.ng{background:#3D1F1B;color:#F3B9B0}
 .tg.sec{display:inline-flex;align-items:center;gap:3px;background:#3B2A5C;color:#fff;border-color:#3B2A5C}
 .eo-m.sec-m{background:#3B2A5C;color:#fff}
 .sec-sw{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--sub);cursor:pointer}
@@ -1531,7 +1552,6 @@ const EP = id => E(id) || {id, name:'（いない人）', role:'jimu', biz:'exec
 /* 短い呼び名：ふだんは名字。同じ名字の人がいる時は名字＋名前 */
 const nick = e => { const f = e.name.split(' ')[0]; return PEOPLE.some(p=>p!==e && canUse(p) && p.name.split(' ')[0]===f) ? e.name.replace(/\s/g,'') : f; };
 const OFFER_MAX = 1;   /* 1タスクを受けられる人数（あとで変えるときはここ） */
-const HOLD_MAX = 5;    /* 1人が抱えられるタスクの数（あとで変えるときはここ） */
 const isExecP = p => !!p && (p.role==='exec' || p.role==='super'); /* スーパー管理者は役員と同じ権限 */
 const meIsExec = () => isExecP(E(S.me));
 /* タスクを登録できる人：部長以上（役員・スーパー管理者・総合管理・部長）。例外として、システム開発部門の人は役職に関係なく登録できる */
@@ -1550,7 +1570,7 @@ const isPendingReq = t => t.req==='pending' || t.req==='declined';
    期限超過は確認すると消えるが、日付が変わって超過日数が増えると、また出てくる */
 const seenDay = t => (t.seen||{})[S.me];
 const confirmed = t => !!seenDay(t) && !(isLate(t) && seenDay(t) !== iso(TODAY));
-const onHome = t => !isPendingReq(t) && (!meIsExec() || !confirmed(t));
+const onHome = t => !isPendingReq(t) && !(meIsExec() && t.appr==='pending') && (!meIsExec() || !confirmed(t));
 /* 「着手」を出す：まだだれも受けていない未着手のタスク（役員も受けられる） */
 const canTake = t => !t.taker && t.status==='todo';
 const stOf = t => t.status==='done' ? 'done' : diff(t.due)<0 ? 'late' : t.status;
@@ -1565,8 +1585,12 @@ const visText = v => !v ? '' : v.r==='secret' ? 'シークレット' : v.r==='ex
 const visOk = t => { const me = E(S.me), v = t.vis; if (!me || v.r==='exec') return false;
   const rm = RANK[me.role] ?? 0, rv = RANK[v.r] ?? 0; if (rm < rv) return false;
   if (ALL_CO.includes(me.role)) return true; if (t.biz && !bizOfP(S.me).has(t.biz)) return false; if (!t.co) return true; return coOfP(S.me).has(t.co); };
+/* 部長が作ったタスクは、役員が許可するまで（確認待ち・差し戻し）役員と出した部長だけが見られる */
+const apWait = t => t.appr==='pending' || t.appr==='ng';
+const needAppr = () => (E(S.me)||{}).role==='bucho';
+const execIds = () => PEOPLE.filter(p=>p.role==='exec' && canUse(p)).map(p=>p.id);
 /* シークレット：役員と、担当者・出した人だけが見られる */
-const canSee = t => meIsExec() || !t.execOnly && (t.owner===S.me || t.taker===S.me || (!t.secret && (t.vis ? visOk(t) : (!execHeld(t) && roleOk(t)))));
+const canSee = t => apWait(t) ? (meIsExec() || t.owner===S.me) : meIsExec() || !t.execOnly && (t.owner===S.me || t.taker===S.me || (!t.secret && (t.vis ? visOk(t) : (!execHeld(t) && roleOk(t)))));
 /* 会社として見る（役員だけ）：S.scope に会社の番号。その会社に振り分けた人（役員はのぞく）のタスク・人だけを出す */
 const scopeCo = () => S.scope==null || typeof S.scope==='string' || !meIsExec() ? null : COMPANIES[S.scope] || null;
 /* 役員として見る（S.scope==='x'）：役員と、役員が抱える・役員タスクにしたものだけ */
@@ -1664,15 +1688,13 @@ function postHtml(t){
       <span class="sp"></span>
       <button data-save="${t.id}" class="${isSaved(t)?'saved':''}" aria-label="注目にする">${ic('save')}</button>
     </div>
-    <div class="tags">${t.secret?`<span class="tg sec">シークレット</span>`:''}${t.execOnly?'<span class="tg eo">役員タスク</span>':t.vis && t.vis.r!=='jimu'?`<span class="tg">${visText(t.vis)}公開</span>`:''}${t.biz && B(t.biz)?`<span class="tg" style="--bz:${B(t.biz).color};border-color:var(--bz);color:var(--bz)">${esc(B(t.biz).short)}</span>`:''}<span class="tg st-s">${s.l}</span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
+    <div class="tags">${t.appr==='pending'?'<span class="tg ap">役員の確認待ち</span>':t.appr==='ng'?'<span class="tg apng">差し戻し</span>':''}${t.secret?`<span class="tg sec">シークレット</span>`:''}${t.execOnly?'<span class="tg eo">役員タスク</span>':t.vis && t.vis.r!=='jimu'?`<span class="tg">${visText(t.vis)}公開</span>`:''}${t.biz && B(t.biz)?`<span class="tg" style="--bz:${B(t.biz).color};border-color:var(--bz);color:var(--bz)">${esc(B(t.biz).short)}</span>`:''}<span class="tg st-s">${s.l}</span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
     <div class="cap">${e.id===t.owner?`<b>${esc(e.name)}</b>`:''}${esc(t.desc)}</div>
     ${t.note?`<div class="reply">└ ${esc(t.note)}</div>`:''}
     ${t.comments.length?`<button class="cmore" data-cmt="${t.id}">${t.comments.length>1?`コメント${t.comments.length}件をすべて見る`:`${esc(E(last.by).name)}：${esc(last.text.slice(0,28))}${last.text.length>28?'…':''}`}</button>`:''}
     ${progHtml(t, 'p'+t.id)}
     ${t.taker ? `<div class="taker"><span class="tk-l">担当</span><button class="tk-p" data-prof="${t.taker}">${av(EP(t.taker),'s28')}<b>${esc(EP(t.taker).name)}</b></button>${t.taker===S.me?'<em class="tk-me">あなたが受けました</em>':''}</div>` : ''}
-    ${canTake(t) ? `<div class="take">${heldOf(S.me) >= HOLD_MAX
-        ? `<button class="btn wide" disabled>着手（先着${OFFER_MAX}名）</button><p class="take-ng">いま${heldOf(S.me)}件抱えています。上限は${HOLD_MAX}件なので、完了してから受けられます。</p>`
-        : `<button class="btn wide" data-take="${t.id}">着手（先着${OFFER_MAX}名）</button>`}</div>` : ''}
+    ${canTake(t) ? `<div class="take"><button class="btn wide" data-take="${t.id}">着手（先着${OFFER_MAX}名）</button></div>` : ''}
     <button class="cadd" data-cmt="${t.id}">${av(E(S.me),'s24')}<span>コメントを追加…</span></button>
     <div class="pf">${!canFinish(t) ? (meIsExec() && !confirmed(t) ? `<button class="pb go" data-seen="${t.id}">${ic('check')}確認した</button>` : `<small class="pf-note">受けた人が完了にできます</small>`)
       : t.status==='done' ? `<button class="pb" data-undo="${t.id}">${ic('back')}未完了に戻す</button>`
@@ -1695,10 +1717,16 @@ function storiesHtml(){
       <span class="r ${stRing(e.id)}">${av(e,'s68')}</span><small>${esc(nick(e))}</small></button>`).join('')}</div>
   </div>`;
 }
+/* 役員のホームの上：部長から届いた、確認待ちのタスク */
+function apprHtml(){ if (!meIsExec()) return ''; const list = TASKS.filter(t=>t.appr==='pending').sort((a,b)=>(a.at||0)-(b.at||0)); if (!list.length) return '';
+  return `<section class="ap-box" aria-label="確認待ち"><h3>部長からの確認待ち<b class="num">${list.length}</b></h3>${list.map(t=>{ const o = EP(t.owner);
+    return `<div class="ap-card"><button class="ap-main" data-open="${t.id}"><span class="ap-who">${av(o,'s28')}<b>${esc(o.name)}</b><small>${ago(t.at)}</small></span><b class="ap-t">${t.secret?'<em class="eo-m sec-m">シークレット</em>':''}${esc(t.title)}</b>
+      <small class="ap-m">見せる範囲：${t.secret ? 'シークレット（担当：' + esc(EP(t.taker).name) + '）' : t.execOnly ? '役員のみ' : t.vis ? visText(t.vis) : 'ふつう'}　期限 ${ymd(t.due)}</small></button>
+      <div class="ap-b"><button class="btn ghost" data-apng="${t.id}">差し戻す</button><button class="btn" data-apok="${t.id}">許可する</button></div></div>`; }).join('')}</section>`; }
 function homeHtml(){
   /* 新しく出たものと期限超過を上に、あとは期限の近い順。完了は下 */
   const list = VT().filter(onHome).sort((a,b)=>(a.status==='done')-(b.status==='done') || isLate(b)-isLate(a) || (b.at||0)-(a.at||0) || new Date(a.due)-new Date(b.due));
-  return `${storiesHtml()}
+  return `${storiesHtml()}${apprHtml()}
     <div class="feed">${list.map(postHtml).join('') || '<p class="empty">あてはまるタスクはありません</p>'}</div>`;
 }
 function searchHtml(){
@@ -1737,7 +1765,7 @@ function alRows(list){
   return `<div class="alist">${list.map(t=>{ const k = stOf(t), st = STATUS[k], o = EP(t.owner);
     /* 行を押すと内容。右はしのハート（いいね）・しおり（注目）はその場で押せる */
     return `<div class="al-row" data-open="${t.id}" style="--sc:${st.c}"><button class="al-open" data-open="${t.id}"><span class="al-st">${st.l}</span>
-      <span class="al-main"><b>${t.secret?'<em class="eo-m sec-m">シークレット</em>':''}${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(EP(t.taker).name)}`:''}</small>
+      <span class="al-main"><b>${t.appr==='pending'?'<em class="eo-m ap-m2">確認待ち</em>':t.appr==='ng'?'<em class="eo-m apng-m">差し戻し</em>':''}${t.secret?'<em class="eo-m sec-m">シークレット</em>':''}${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(EP(t.taker).name)}`:''}</small>
         <span class="al-bar"><i style="width:${t.prog}%"></i></span></span>
       <span class="al-r"><b class="num">${t.prog}%</b>${alLeft(t)}</span></button>
       <span class="al-acts"><button data-like="${t.id}" class="${(t.likedBy||[]).includes(S.me)?'liked':''}" aria-label="いいね">${ic('heart')}${t.likes?`<span class="num">${t.likes}</span>`:''}</button><button data-save="${t.id}" class="${isSaved(t)?'saved':''}" aria-label="注目にする">${ic('save')}</button></span></div>`; }).join('')}</div>`;
@@ -1788,8 +1816,7 @@ const tabBar = (tabs, cur, own) => `<div class="mytabs five" role="tablist">${ta
 function reqListHtml(list){
   return `<div class="req-list">${list.map(t=>{ const from = EP(t.owner); return `<div class="req-card"><div class="req-h">${av(from,'s32')}<span><b>${esc(from.name)}</b>さんからの依頼<small>${ago(t.at)}</small></span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
       <h3>${t.secret?'<em class="eo-m sec-m">シークレット</em>':''}${esc(t.title)}</h3>${t.desc?`<p>${esc(t.desc)}</p>`:''}<small class="num">期日 ${ymd(t.due)}${diff(t.due)>=0?`（あと${diff(t.due)}日）`:'（過ぎています）'}</small>
-      <div class="btns"><button class="btn" data-reqok="${t.id}" ${heldOf(S.me)>=HOLD_MAX?'disabled':''}>着手</button></div>
-      ${heldOf(S.me)>=HOLD_MAX?`<p class="take-ng">いま${heldOf(S.me)}件抱えています。上限は${HOLD_MAX}件なので、完了してから受けられます。</p>`:''}</div>`; }).join('') || '<p class="empty">届いている依頼はありません</p>'}</div>`;
+      <div class="btns"><button class="btn" data-reqok="${t.id}">着手</button></div></div>`; }).join('') || '<p class="empty">届いている依頼はありません</p>'}</div>`;
 }
 function reqSheet(to){
   const p = E(to);
@@ -1814,7 +1841,7 @@ function pageTabs(p, own){
       || `<p class="empty" style="grid-column:1/-1">${cur[0]==='saved'?'しおりを押したタスクがここに並びます':`${cur[1]}のタスクはありません`}</p>`}</div>`;
 }
 const statsHtml = (p, own) => { const all = tasksOf(p), held = all.filter(t=>HOLD_STATES.includes(stOf(t))).length, done = all.filter(t=>t.status==='done').length;
-  return `<div class="stats"><button data-lp="${p.id}"><b class="num ${held>=HOLD_MAX?'over':''}">${held}<small>/${HOLD_MAX}</small></b><small>タスク</small></button><button data-${own?'mytab':'pftab'}="done"><b class="num">${done}</b><small>完了</small></button><button data-likes="${p.id}"><b class="num">${likesOf(p)}</b><small>いいね</small></button>${own ? `<button data-act="squad"><b class="num">${PEOPLE.filter(x=>x.id!==S.me && canUse(x)).length}</b><small>スクワッド</small></button>` : ''}</div>`; };
+  return `<div class="stats"><button data-lp="${p.id}"><b class="num">${held}</b><small>タスク</small></button><button data-${own?'mytab':'pftab'}="done"><b class="num">${done}</b><small>完了</small></button><button data-likes="${p.id}"><b class="num">${likesOf(p)}</b><small>いいね</small></button>${own ? `<button data-act="squad"><b class="num">${PEOPLE.filter(x=>x.id!==S.me && canUse(x)).length}</b><small>スクワッド</small></button>` : ''}</div>`; };
 /* その人のタイムライン（マイページ・個人ページのアイコンから） */
 function ptlHtml(){
   const e = E(S.tlp) || E(S.me);
@@ -2313,7 +2340,7 @@ function wzConfirm(){
   const row = (k, val, cls) => val ? `<div><b>${k}</b><span class="${cls||''}">${esc(val)}</span></div>` : '';
   $('wz-sum').innerHTML = row('タスク名', title, 'big') + row('見せる範囲', visText(v)) + (v.r==='secret' ? row('担当者', sel('f-taker')) : '') + row('事業', sel('f-biz')) + row('依頼者', (E(S.me)||{}).name || '')
     + row('期限', `${ymd(due)}${diff(due)>=0 ? `（あと${diff(due)}日）` : '（過ぎています）'}`) + row('優先度', PRIO[pr]) + row('状態', `${STATUS[st].l}・${prog}%`)
-    + row('内容', $('f-desc').value.trim()) + row('メモ', $('f-note').value.trim());
+    + row('内容', $('f-desc').value.trim()) + row('メモ', $('f-note').value.trim()) + (needAppr() ? row('表示', '役員が確認して許可したら、選んだ範囲の人に表示されます') : '');
   wzShow(WZ_C);
 }
 document.addEventListener('input', e=>{ if (e.target.closest && e.target.closest('#wz')) wzUpdate(); });
@@ -2329,6 +2356,9 @@ function detailSheet(id){
   const e = EP(t.owner), k = stOf(t), st = STATUS[k];
   sheet(`${head('タスクの内容')}
     <div class="dt-head" style="--sc:${st.c};--sbg:${st.bg}"><span class="spill">${st.l}</span>${t.secret?`<span class="tg sec">シークレット</span>`:''}<h3>${esc(t.title)}</h3></div>
+    ${t.appr==='pending' ? (meIsExec() ? `<div class="ap-note">${esc(EP(t.owner).name)}さん（部長）からの確認待ちです。許可すると、選んだ範囲の人に表示されます<div class="ap-b"><button class="btn ghost" data-apng="${t.id}">差し戻す</button><button class="btn" data-apok="${t.id}">許可する</button></div></div>`
+      : '<div class="ap-note">役員の確認待ちです。許可されると、選んだ範囲の人に表示されます</div>')
+      : t.appr==='ng' ? `<div class="ap-note ng">差し戻されました${t.apprNote ? '：' + esc(t.apprNote) : ''}${t.owner===S.me ? '<br><small>「編集する」で直して保存すると、もう一度役員に確認をお願いします</small>' : ''}</div>` : ''}
     <dl class="dl">
       <dt>依頼者</dt><dd><button class="tk-p" data-prof="${e.id}">${av(e,'s28')}<b>${esc(e.name)}</b></button></dd>
       <dt>担当</dt><dd>${t.taker?`<button class="tk-p" data-prof="${t.taker}">${av(EP(t.taker),'s28')}<b>${esc(EP(t.taker).name)}</b></button>`:'まだだれも受けていません'}</dd>
@@ -2400,7 +2430,6 @@ document.addEventListener('click', e=>{
   if (d.save){ const t = find(d.save); t.savedBy = (t.savedBy||[]).includes(S.me) ? t.savedBy.filter(x=>x!==S.me) : (t.savedBy||[]).concat(S.me); save(); render(); popBtn(`[data-save="${t.id}"]`, isSaved(t), 'mark'); toast(isSaved(t)?'注目に入れました':'注目から外しました'); return; }
   if (d.take){ const t = find(d.take);
     if (t.taker){ toast(`受付終了です。先に${EP(t.taker).name}さんが受けました`); render(); return; }
-    if (heldOf(S.me) >= HOLD_MAX){ toast(`抱えられるタスクは${HOLD_MAX}件までです`); return; }
     t.taker = S.me; t.takenAt = Date.now(); t.status = 'doing'; markStart(t); pushTo([t.owner], `${myNm()}さんが「${tNm(t)}」に着手しました`, 'take-'+t.id); save(); render(); toast('着手しました。マイページの「進行中」に入りました'); return; }
   if (d.start){ const t = find(d.start); if (!canFinish(t)) return; t.status='doing'; markStart(t); save(); render(); toast('着手しました'); return; }
   if (d.seen){ const t = find(d.seen); t.seen = {...(t.seen||{}), [S.me]: iso(TODAY)}; save(); render(); toast(isLate(t)?'確認しました。明日また超過日数が増えると表示されます':'確認しました。ホームから消えました'); return; }
@@ -2408,6 +2437,17 @@ document.addEventListener('click', e=>{
   if (d.undo && !canFinish(find(d.undo))){ toast('戻せるのは、受けた人だけです'); return; }
   if (d.done){ const t = find(d.done); t.status='done'; t.prog=100; t.doneAt = Date.now(); pushTo([t.owner], `${myNm()}さんが「${tNm(t)}」を完了しました`, 'done-'+t.id); save(); render(); toast('完了にしました'); return; }
   if (d.undo){ const t = find(d.undo); t.status='doing'; if (t.prog===100) t.prog=90; save(); render(); toast('未完了に戻しました'); return; }
+  if (d.apok){ const t = find(d.apok); if (!t || !meIsExec()) return; t.appr = 'ok'; t.apprBy = S.me; t.apprAt = Date.now(); t.apprNote = '';
+    pushTo([t.owner], `${myNm()}さんが「${tNm(t)}」を許可しました。選んだ範囲の人に表示されます`, 'apok-'+t.id);
+    if (t.secret && t.taker && t.req==='pending') pushTo([t.taker], `${EP(t.owner).name}さんからシークレットの依頼：「${tNm(t)}」`, 'sec-'+t.id);
+    save(); closeSheet(); render(); toast('許可しました。選んだ範囲の人に表示されます'); return; }
+  if (d.apng){ const t = find(d.apng); if (!t || !meIsExec()) return;
+    sheet(`${head('差し戻す')}<p style="margin:0;font-size:14px">「${esc(t.title)}」を${esc(EP(t.owner).name)}さんに差し戻します。</p>
+      <div class="field"><label for="ap-note">理由・直してほしいところ（なくてもかまいません）</label><textarea id="ap-note" rows="3" maxlength="200" placeholder="例：期限をもう少し早めてください"></textarea></div>
+      <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn" data-apngsend="${t.id}">差し戻す</button></div>`); return; }
+  if (d.apngsend){ const t = find(d.apngsend); if (!t || !meIsExec()) return; if (blockPII(['ap-note'])) return; t.appr = 'ng'; t.apprBy = S.me; t.apprAt = Date.now(); t.apprNote = document.getElementById('ap-note').value.trim();
+    pushTo([t.owner], `${myNm()}さんが「${tNm(t)}」を差し戻しました${t.apprNote ? '：' + cut(t.apprNote, 40) : ''}`, 'apng-'+t.id);
+    save(); closeSheet(); render(); toast('差し戻しました'); return; }
   if (d.reqto){ reqSheet(d.reqto); return; }
   if (d.reqsend){ const title = document.getElementById('q-title').value.trim(); if (!title){ toast('依頼タスク名を入れてください'); return; }
     if (blockPII(['q-title','q-desc'])) return;
@@ -2416,7 +2456,7 @@ document.addEventListener('click', e=>{
       prio:document.querySelector('input[name="q-pr"]:checked').value, likes:0, likedBy:[], comments:[], at:Date.now(), secret:!!(document.getElementById('q-sec')||{}).checked});
     pushTo([d.reqsend], `${myNm()}さんから${TASKS[0].secret ? 'シークレットの' : ''}依頼：「${cut(title, 20)}」`, 'req-'+TASKS[0].id);
     save(); closeSheet(); render(); toast(`${E(d.reqsend).name}さんに${TASKS[0].secret ? 'シークレットで' : ''}依頼しました。マイページの「依頼」に届きます`); return; }
-  if (d.reqok){ const t = find(d.reqok); if (heldOf(S.me) >= HOLD_MAX){ toast(`抱えられるタスクは${HOLD_MAX}件までです`); return; } t.req='ok'; t.takenAt=Date.now(); t.status='doing'; markStart(t); save(); render(); toast('依頼に着手しました。ホームと「進行中」に入りました'); return; }
+  if (d.reqok){ const t = find(d.reqok); t.req='ok'; t.takenAt=Date.now(); t.status='doing'; markStart(t); save(); render(); toast('依頼に着手しました。ホームと「進行中」に入りました'); return; }
   if (d.reqno){ const t = find(d.reqno); t.req='declined'; save(); render(); toast('依頼を断りました'); return; }
   if (d.detail){ detailSheet(d.detail); return; }
   if (d.edit){ if (!canEdit(find(d.edit))){ toast('編集できるのは、作った人だけです'); return; } editSheet(d.edit); return; }
@@ -2445,10 +2485,13 @@ document.addEventListener('click', e=>{
       prog:+document.getElementById('f-prog').value, ...visSave(), desc:document.getElementById('f-desc').value.trim(), note:document.getElementById('f-note').value.trim()};
     if (v.status==='done') v.prog = 100;
     if (v.status==='todo') v.start = null; else if (!(d.savetask && find(d.savetask).start)) v.start = iso(TODAY);
-    /* シークレット：担当者に依頼として届く（受けるまでは依頼のまま） */
-    if (v.secret){ const old = d.savetask ? find(d.savetask) : null; if (!old || old.taker!==tkv){ v.taker = tkv; v.req = 'pending'; v.status = 'todo'; v.start = null; pushTo([tkv], `${myNm()}さんからシークレットの依頼：「${cut(title, 20)}」`, 'sec-'+(d.savetask||'new')); } }
+    /* 部長が作る時は、役員の確認待ちにする（差し戻されたものを直した時も、もう一度確認待ちに） */
+    const old0 = d.savetask ? find(d.savetask) : null;
+    if (needAppr() && (!old0 || apWait(old0))){ v.appr = 'pending'; v.apprNote = ''; pushTo(execIds(), `${myNm()}さん（部長）からタスクの確認：「${cut(title, 20)}」`, 'ap-'+(d.savetask||'new')); }
+    /* シークレット：担当者に依頼として届く（受けるまでは依頼のまま）。確認待ちの間は担当者に知らせない */
+    if (v.secret){ const old = d.savetask ? find(d.savetask) : null; if (!old || old.taker!==tkv){ v.taker = tkv; v.req = 'pending'; v.status = 'todo'; v.start = null; if (!v.appr) pushTo([tkv], `${myNm()}さんからシークレットの依頼：「${cut(title, 20)}」`, 'sec-'+(d.savetask||'new')); } }
     if (d.savetask){ Object.assign(find(d.savetask), v); toast('保存しました'); }
-    else { TASKS.unshift({id:'t'+Date.now(), likes:0, liked:false, saved:false, comments:[], at:Date.now(), ...v}); S.view='home'; S.filter='all'; S.who=null; toast(v.secret ? `シークレットで登録しました。${E(tkv).name}さんの「依頼」に届きます` : 'タスクを登録しました'); }
+    else { TASKS.unshift({id:'t'+Date.now(), likes:0, liked:false, saved:false, comments:[], at:Date.now(), ...v}); S.view='home'; S.filter='all'; S.who=null; toast(v.appr ? '役員に確認をお願いしました。許可されると、選んだ範囲の人に表示されます' : v.secret ? `シークレットで登録しました。${E(tkv).name}さんの「依頼」に届きます` : 'タスクを登録しました'); }
     save(); closeSheet(); render(); window.scrollTo(0,0); return; }
   if (d.mon){ const b = S.month ? new Date(S.month) : new Date(TODAY.getFullYear(), TODAY.getMonth(), 1); b.setMonth(b.getMonth()+ +d.mon); S.month = +b; S.pick=null; render(); return; }
   if (d.act==='squad'){ const all = PEOPLE.filter(x=>x.id!==S.me && canUse(x));
