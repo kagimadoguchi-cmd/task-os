@@ -323,6 +323,18 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .eo-ck span{display:flex;flex-direction:column;gap:2px}
 .eo-ck b{font-size:14px}.eo-ck small{font-size:12px;color:var(--ink3)}
 .tg.eo{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.tg.sec{display:inline-flex;align-items:center;gap:3px;background:#3B2A5C;color:#fff;border-color:#3B2A5C}
+.eo-m.sec-m{background:#3B2A5C;color:#fff}
+.sec-sw{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--sub);cursor:pointer}
+.sec-sw input{position:absolute;opacity:0;pointer-events:none}
+.sec-sw .sw{flex:none;position:relative;width:46px;height:28px;border-radius:999px;background:var(--line);transition:background .2s}
+.sec-sw .sw::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s cubic-bezier(.2,1.3,.4,1)}
+.sec-sw input:checked+.sw{background:#3B2A5C}
+.sec-sw input:checked+.sw::after{transform:translateX(18px)}
+.sec-sw input:focus-visible+.sw{outline:2px solid var(--blue);outline-offset:2px}
+.sec-sw .t{display:flex;flex-direction:column;gap:2px}
+.sec-sw b{font-size:14px;font-weight:800}
+.sec-sw small{font-size:12px;color:var(--ink3)}
 .eo-m{font-style:normal;font-size:10px;font-weight:800;color:var(--card);background:var(--ink);border-radius:4px;padding:1px 5px;margin-right:6px;vertical-align:2px}
 .top-gear{width:40px;height:40px;margin-right:-6px;border:0;background:none;border-radius:50%;display:grid;place-items:center;color:var(--ink);cursor:pointer}
 .top-gear svg{width:24px;height:24px}
@@ -1549,11 +1561,12 @@ const execHeld = t => t.taker ? isExecP(E(t.taker)) : t.status!=='todo';
 /* 「役員タスク」にチェックしたものは、役員だけが見られる */
 /* 公開する範囲（役員が選ぶ）：「課長まで」＝役員〜課長。会社を選んだタスクは、その会社の人だけ（部長より上はどの会社も） */
 const VIS_ROLES = ['exec','bucho','kacho','kakari','shunin','shain','jimu'];
-const visText = v => !v ? '' : v.r==='exec' ? '役員のみ' : ROLE[v.r] + 'まで';
+const visText = v => !v ? '' : v.r==='secret' ? 'シークレット' : v.r==='exec' ? '役員のみ' : ROLE[v.r] + 'まで';
 const visOk = t => { const me = E(S.me), v = t.vis; if (!me || v.r==='exec') return false;
   const rm = RANK[me.role] ?? 0, rv = RANK[v.r] ?? 0; if (rm < rv) return false;
   if (ALL_CO.includes(me.role)) return true; if (t.biz && !bizOfP(S.me).has(t.biz)) return false; if (!t.co) return true; return coOfP(S.me).has(t.co); };
-const canSee = t => meIsExec() || !t.execOnly && (t.owner===S.me || t.taker===S.me || (t.vis ? visOk(t) : (!execHeld(t) && roleOk(t))));
+/* シークレット：役員と、担当者・出した人だけが見られる */
+const canSee = t => meIsExec() || !t.execOnly && (t.owner===S.me || t.taker===S.me || (!t.secret && (t.vis ? visOk(t) : (!execHeld(t) && roleOk(t)))));
 /* 会社として見る（役員だけ）：S.scope に会社の番号。その会社に振り分けた人（役員はのぞく）のタスク・人だけを出す */
 const scopeCo = () => S.scope==null || typeof S.scope==='string' || !meIsExec() ? null : COMPANIES[S.scope] || null;
 /* 役員として見る（S.scope==='x'）：役員と、役員が抱える・役員タスクにしたものだけ */
@@ -1651,7 +1664,7 @@ function postHtml(t){
       <span class="sp"></span>
       <button data-save="${t.id}" class="${isSaved(t)?'saved':''}" aria-label="注目にする">${ic('save')}</button>
     </div>
-    <div class="tags">${t.execOnly?'<span class="tg eo">役員タスク</span>':t.vis && t.vis.r!=='jimu'?`<span class="tg">${visText(t.vis)}公開</span>`:''}${t.biz && B(t.biz)?`<span class="tg" style="--bz:${B(t.biz).color};border-color:var(--bz);color:var(--bz)">${esc(B(t.biz).short)}</span>`:''}<span class="tg st-s">${s.l}</span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
+    <div class="tags">${t.secret?`<span class="tg sec">シークレット</span>`:''}${t.execOnly?'<span class="tg eo">役員タスク</span>':t.vis && t.vis.r!=='jimu'?`<span class="tg">${visText(t.vis)}公開</span>`:''}${t.biz && B(t.biz)?`<span class="tg" style="--bz:${B(t.biz).color};border-color:var(--bz);color:var(--bz)">${esc(B(t.biz).short)}</span>`:''}<span class="tg st-s">${s.l}</span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
     <div class="cap">${e.id===t.owner?`<b>${esc(e.name)}</b>`:''}${esc(t.desc)}</div>
     ${t.note?`<div class="reply">└ ${esc(t.note)}</div>`:''}
     ${t.comments.length?`<button class="cmore" data-cmt="${t.id}">${t.comments.length>1?`コメント${t.comments.length}件をすべて見る`:`${esc(E(last.by).name)}：${esc(last.text.slice(0,28))}${last.text.length>28?'…':''}`}</button>`:''}
@@ -1724,7 +1737,7 @@ function alRows(list){
   return `<div class="alist">${list.map(t=>{ const k = stOf(t), st = STATUS[k], o = EP(t.owner);
     /* 行を押すと内容。右はしのハート（いいね）・しおり（注目）はその場で押せる */
     return `<div class="al-row" data-open="${t.id}" style="--sc:${st.c}"><button class="al-open" data-open="${t.id}"><span class="al-st">${st.l}</span>
-      <span class="al-main"><b>${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(EP(t.taker).name)}`:''}</small>
+      <span class="al-main"><b>${t.secret?'<em class="eo-m sec-m">シークレット</em>':''}${t.execOnly?'<em class="eo-m">役員</em>':''}${esc(t.title)}</b><small>${av(o,'s20')}${esc(o.name)}${t.taker?`　担当：${esc(EP(t.taker).name)}`:''}</small>
         <span class="al-bar"><i style="width:${t.prog}%"></i></span></span>
       <span class="al-r"><b class="num">${t.prog}%</b>${alLeft(t)}</span></button>
       <span class="al-acts"><button data-like="${t.id}" class="${(t.likedBy||[]).includes(S.me)?'liked':''}" aria-label="いいね">${ic('heart')}${t.likes?`<span class="num">${t.likes}</span>`:''}</button><button data-save="${t.id}" class="${isSaved(t)?'saved':''}" aria-label="注目にする">${ic('save')}</button></span></div>`; }).join('')}</div>`;
@@ -1774,7 +1787,7 @@ const likesOf = p => tasksOf(p).reduce((n,t)=>n+t.likes,0);
 const tabBar = (tabs, cur, own) => `<div class="mytabs five" role="tablist">${tabs.map(([k,l,list])=>`<button role="tab" data-${own?'mytab':'pftab'}="${k}" aria-selected="${cur[0]===k}" class="tb-${k}">${l}<small class="num ${k==='req'&&list.length?'req-n':''}">${list.length}</small></button>`).join('')}</div>`;
 function reqListHtml(list){
   return `<div class="req-list">${list.map(t=>{ const from = EP(t.owner); return `<div class="req-card"><div class="req-h">${av(from,'s32')}<span><b>${esc(from.name)}</b>さんからの依頼<small>${ago(t.at)}</small></span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
-      <h3>${esc(t.title)}</h3>${t.desc?`<p>${esc(t.desc)}</p>`:''}<small class="num">期日 ${ymd(t.due)}${diff(t.due)>=0?`（あと${diff(t.due)}日）`:'（過ぎています）'}</small>
+      <h3>${t.secret?'<em class="eo-m sec-m">シークレット</em>':''}${esc(t.title)}</h3>${t.desc?`<p>${esc(t.desc)}</p>`:''}<small class="num">期日 ${ymd(t.due)}${diff(t.due)>=0?`（あと${diff(t.due)}日）`:'（過ぎています）'}</small>
       <div class="btns"><button class="btn" data-reqok="${t.id}" ${heldOf(S.me)>=HOLD_MAX?'disabled':''}>着手</button></div>
       ${heldOf(S.me)>=HOLD_MAX?`<p class="take-ng">いま${heldOf(S.me)}件抱えています。上限は${HOLD_MAX}件なので、完了してから受けられます。</p>`:''}</div>`; }).join('') || '<p class="empty">届いている依頼はありません</p>'}</div>`;
 }
@@ -1785,6 +1798,7 @@ function reqSheet(to){
     <div class="field"><label for="q-title">依頼タスク名</label><input id="q-title" placeholder="例：来週の会議資料のチェック"></div>
     <div class="field"><label for="q-desc">内容</label><textarea id="q-desc" rows="4" placeholder="やってほしいこと・背景"></textarea></div>
     <div class="field"><label for="q-due">期日</label><input id="q-due" type="date" value="${iso(dayAdd(7))}"></div>
+    <label class="sec-sw"><input type="checkbox" id="q-sec" role="switch"><span class="sw"></span><span class="t"><b>シークレットにする</b><small>役員と${esc(nick(p))}さん（とあなた）だけが見られます</small></span></label>
     <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn" data-reqsend="${p.id}">申請する</button></div>`);
 }
 function pageTabs(p, own){
@@ -2142,8 +2156,8 @@ document.addEventListener('pointerdown', e=>{ avEat = false; const b = e.target.
   if (avLp) clearTimeout(avLp.t); avLp = {x:e.clientX, y:e.clientY, t:setTimeout(()=>{ avLp = null; avEat = true; avZoom(b, b.dataset.sv); }, 420)}; });
 document.addEventListener('pointermove', e=>{ if (avLp && Math.hypot(e.clientX - avLp.x, e.clientY - avLp.y) > 10){ clearTimeout(avLp.t); avLp = null; } });
 ['pointerup','pointercancel'].forEach(t=>document.addEventListener(t, ()=>{ if (avLp){ clearTimeout(avLp.t); avLp = null; } }));
-/* 長押しのあとの「押した」はストーリーを開かない */
-document.addEventListener('click', e=>{ if (avEat){ avEat = false; if (e.target.closest('.avr-btn')){ e.stopPropagation(); e.preventDefault(); } } }, true);
+/* 長押しのあとの「押した」（指をはなした時）はストーリーを開かない。大きくした顔も閉じない（もう一度タップで閉じる） */
+document.addEventListener('click', e=>{ if (avEat){ avEat = false; if (e.target.closest('.avr-btn,.avz')){ e.stopPropagation(); e.preventDefault(); } } }, true);
 document.addEventListener('contextmenu', e=>{ if (e.target.closest('.avr-btn')) e.preventDefault(); });
 function render(){
   /* ログイン画面は固定（画面ごと動かない）。名前が多くて入りきらない画面だけ、中で上下に動く */
@@ -2196,6 +2210,8 @@ function editSheet(id){
     eo:visField(t),
     /* 事業（水道・電気・カギ・ロード・探偵・システム）。役員以外は自分の事業がはじめから選ばれている。役員は事業の画面で見ているエリアの事業 */
     co:`<div class="field"><label for="f-biz">事業</label><select id="f-biz"><option value="">指定なし（全社）</option>${BIZ.filter(b=>b.id!=='exec').map(b=>`<option value="${b.id}" ${(t.biz||(!id ? (scopeA() ? scopeA().split('@')[0] : (!isExecP(E(S.me)) && E(S.me).biz!=='exec' ? E(S.me).biz : '')) : ''))===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>`,
+    /* シークレットの時だけ：担当者（役員と担当者だけが見られる）。担当者には依頼として届く */
+    tk:takerField(t),
     /* 出す人は、登録している本人で固定（欄は出さない） */
     due:`<div class="field"><label for="f-due">期限</label><input id="f-due" type="date" value="${t.due}"><small class="hint">開始日は、だれかが着手した日になります</small></div>`,
     st:`<div class="field"><label>状態</label><div class="seg">${['todo','doing','done'].map(k=>`<label><input type="radio" name="f-st" value="${k}" ${t.status===k?'checked':''}>${STATUS[k].l}</label>`).join('')}</div></div>`,
@@ -2211,7 +2227,7 @@ function editSheet(id){
       <div class="wz-q"><small class="wz-n num"></small><span class="wz-t"></span></div>
       <section class="wz-step" data-step="1" data-q="何をしますか？">${F.title}</section>
       <section class="wz-step" data-step="2" data-q="だれまで見せますか？">${F.eo}</section>
-      <section class="wz-step" data-step="3" data-q="どこの仕事ですか？">${F.co}</section>
+      <section class="wz-step" data-step="3" data-q="どこの仕事ですか？">${F.tk}${F.co}</section>
       <section class="wz-step" data-step="4" data-q="いつまでにやりますか？">${F.due}${F.pr}</section>
       <section class="wz-step" data-step="5" data-q="いまどんな状態ですか？">${F.st}${F.prog}</section>
       <section class="wz-step" data-step="6" data-q="くわしく書きますか？">${F.desc}${F.note}</section>
@@ -2223,6 +2239,7 @@ function editSheet(id){
   sheet(`${head(id?'タスクを編集':'タスクを登録')}
     <div class="field"><label for="f-title">タスク名</label><input id="f-title" value="${esc(t.title)}" placeholder="例：中期経営計画の骨子をまとめる"></div>
     ${F.eo}
+    ${F.tk}
     ${F.co}
     <p style="margin:0;font-size:13px;color:var(--ink3)">依頼者：${esc((E(t.owner)||{}).name || '')}</p>
     <div class="field"><label for="f-due">期限</label><input id="f-due" type="date" value="${t.due}"><small class="hint">開始日は、だれかが着手した日になります</small></div>
@@ -2237,20 +2254,23 @@ function editSheet(id){
 /* 保存：前に範囲を決めていない古いタスクで、範囲をさわっていなければ、今までのきまりのまま */
 const visSave = () => { const box = document.getElementById('f-vis'), v = visRead();
   if (box.dataset.had==='0' && box.dataset.init===v.r+'|'+v.m) return {execOnly:false};
-  return v.r==='exec' ? {execOnly:true, vis:null} : {execOnly:false, vis:v}; };
+  return v.r==='secret' ? {execOnly:false, vis:null, secret:true} : v.r==='exec' ? {execOnly:true, vis:null, secret:false} : {execOnly:false, vis:v, secret:false}; };
 const WZ_N = 6, WZ_C = 7; /* 質問は6つ。7つめは登録前の確認 */
 /* 公開する範囲の欄：「役職」と「のみ／まで」をタブで選ぶ */
+/* 担当者を選ぶ欄（シークレットの時だけ出す）。役割ごとにまとめて並べる */
+function takerField(t){ const ppl = PEOPLE.filter(p=>p.id!==S.me && canUse(p) && !p.hidden);
+  return `<div class="field" id="f-tkbox" ${t.secret ? '' : 'hidden'}><label for="f-taker">担当者（シークレット）</label><select id="f-taker"><option value="">選んでください</option>${ROLE_ORDER.map(rl=>{ const l = ppl.filter(p=>p.role===rl); return l.length ? `<optgroup label="${ROLE[rl]}">${l.map(p=>`<option value="${p.id}" ${t.taker===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select><small class="hint">役員と、この担当者だけが見られます。担当者のマイページの「依頼」に届きます</small></div>`; }
 function visField(t){
-  const v0 = t.vis || (t.execOnly ? {r:'exec', m:'only'} : {r:'jimu', m:'upto'}), v = {r:v0.r, m:v0.r==='exec' ? 'only' : 'upto'}, had = t.vis ? '1' : t.execOnly ? 'eo' : (t.id ? '0' : '1');
+  const v0 = t.secret ? {r:'secret', m:'only'} : t.vis || (t.execOnly ? {r:'exec', m:'only'} : {r:'jimu', m:'upto'}), v = {r:v0.r, m:v0.r==='exec' || v0.r==='secret' ? 'only' : 'upto'}, had = t.vis || t.secret ? '1' : t.execOnly ? 'eo' : (t.id ? '0' : '1');
   return `<div class="field vis" id="f-vis" data-had="${had}" data-init="${v.r}|${v.m}"><span class="lb">どの役職まで見せますか（役員から見て）</span>
-    <div class="seg vis-r">${(meIsExec() ? VIS_ROLES : VIS_ROLES.filter(k=>k!=='exec')).map(k=>`<label><input type="radio" name="f-vr" value="${k}" ${v.r===k?'checked':''}>${ROLE[k]}</label>`).join('')}</div>
+    <div class="seg vis-r">${(meIsExec() ? VIS_ROLES : VIS_ROLES.filter(k=>k!=='exec')).map(k=>`<label><input type="radio" name="f-vr" value="${k}" ${v.r===k?'checked':''}>${ROLE[k]}</label>`).join('')}<label class="vis-sec"><input type="radio" name="f-vr" value="secret" ${v.r==='secret'?'checked':''}>シークレット</label></div>
     <p class="vis-t" id="f-vist">${visDesc(v)}</p></div>`;
 }
-const visDesc = v => v.r==='exec' ? '役員だけが見られます。役員以外には出ません'
+const visDesc = v => v.r==='secret' ? '役員と、担当者（と出した人）だけが見られます。次の質問で担当者を選びます' : v.r==='exec' ? '役員だけが見られます。役員以外には出ません'
   : v.r==='bucho' ? '役員と部長が見られます' : `役員から${ROLE[v.r]}までの人が見られます（${VIS_ROLES.slice(1, VIS_ROLES.indexOf(v.r)+1).map(k=>ROLE[k]).join('・')}）`;
-const visRead = () => { const r = (document.querySelector('input[name="f-vr"]:checked')||{}).value || 'jimu'; return {r, m: r==='exec' ? 'only' : 'upto'}; };
+const visRead = () => { const r = (document.querySelector('input[name="f-vr"]:checked')||{}).value || 'jimu'; return {r, m: r==='exec' || r==='secret' ? 'only' : 'upto'}; };
 document.addEventListener('change', e=>{ if (!e.target.closest || !e.target.closest('#f-vis')) return; const v = visRead();
-  document.getElementById('f-vist').textContent = visDesc(v); });
+  document.getElementById('f-vist').textContent = visDesc(v); const tb = document.getElementById('f-tkbox'); if (tb) tb.hidden = v.r!=='secret'; });
 const wzOk = k => k===1 ? !!(document.getElementById('f-title')||{}).value.trim() : k===4 ? !!(document.getElementById('f-due')||{}).value : true;
 function wzUpdate(){
   const wz = document.getElementById('wz'); if (!wz) return;
@@ -2277,6 +2297,7 @@ function wzNext(){
   const k = +document.getElementById('wz').dataset.step;
   if (k===1 && !wzOk(1)){ toast('タスク名を入れてください'); document.getElementById('f-title').focus(); return; }
   if (k===1 && blockPII(['f-title'])) return;
+  if (k===3 && visRead().r==='secret' && !(document.getElementById('f-taker')||{}).value){ toast('シークレットの担当者を選んでください'); return; }
   if (k===4 && !wzOk(4)){ toast('期限を入れてください'); return; }
   wzShow(Math.min(WZ_N, k+1));
 }
@@ -2290,7 +2311,7 @@ function wzConfirm(){
   const st = (document.querySelector('input[name="f-st"]:checked')||{}).value || 'todo', pr = (document.querySelector('input[name="f-pr"]:checked')||{}).value || 'mid';
   const v = visRead(), due = $('f-due').value, prog = st==='done' ? 100 : +$('f-prog').value;
   const row = (k, val, cls) => val ? `<div><b>${k}</b><span class="${cls||''}">${esc(val)}</span></div>` : '';
-  $('wz-sum').innerHTML = row('タスク名', title, 'big') + row('見せる範囲', v.r==='exec' ? '役員のみ' : ROLE[v.r]+'まで') + row('事業', sel('f-biz')) + row('依頼者', (E(S.me)||{}).name || '')
+  $('wz-sum').innerHTML = row('タスク名', title, 'big') + row('見せる範囲', visText(v)) + (v.r==='secret' ? row('担当者', sel('f-taker')) : '') + row('事業', sel('f-biz')) + row('依頼者', (E(S.me)||{}).name || '')
     + row('期限', `${ymd(due)}${diff(due)>=0 ? `（あと${diff(due)}日）` : '（過ぎています）'}`) + row('優先度', PRIO[pr]) + row('状態', `${STATUS[st].l}・${prog}%`)
     + row('内容', $('f-desc').value.trim()) + row('メモ', $('f-note').value.trim());
   wzShow(WZ_C);
@@ -2307,7 +2328,7 @@ function detailSheet(id){
   const t = TASKS.find(x=>x.id===id); if (!t || !canSee(t)) return;
   const e = EP(t.owner), k = stOf(t), st = STATUS[k];
   sheet(`${head('タスクの内容')}
-    <div class="dt-head" style="--sc:${st.c};--sbg:${st.bg}"><span class="spill">${st.l}</span><h3>${esc(t.title)}</h3></div>
+    <div class="dt-head" style="--sc:${st.c};--sbg:${st.bg}"><span class="spill">${st.l}</span>${t.secret?`<span class="tg sec">シークレット</span>`:''}<h3>${esc(t.title)}</h3></div>
     <dl class="dl">
       <dt>依頼者</dt><dd><button class="tk-p" data-prof="${e.id}">${av(e,'s28')}<b>${esc(e.name)}</b></button></dd>
       <dt>担当</dt><dd>${t.taker?`<button class="tk-p" data-prof="${t.taker}">${av(EP(t.taker),'s28')}<b>${esc(EP(t.taker).name)}</b></button>`:'まだだれも受けていません'}</dd>
@@ -2392,8 +2413,9 @@ document.addEventListener('click', e=>{
     if (blockPII(['q-title','q-desc'])) return;
     const due = document.getElementById('q-due').value || iso(dayAdd(7));
     TASKS.unshift({id:'t'+Date.now(), owner:S.me, taker:d.reqsend, req:'pending', title, desc:document.getElementById('q-desc').value.trim(), note:'', due, status:'todo', prog:0,
-      prio:document.querySelector('input[name="q-pr"]:checked').value, likes:0, likedBy:[], comments:[], at:Date.now()});
-    save(); closeSheet(); render(); toast(`${E(d.reqsend).name}さんに依頼しました。マイページの「依頼」に届きます`); return; }
+      prio:document.querySelector('input[name="q-pr"]:checked').value, likes:0, likedBy:[], comments:[], at:Date.now(), secret:!!(document.getElementById('q-sec')||{}).checked});
+    pushTo([d.reqsend], `${myNm()}さんから${TASKS[0].secret ? 'シークレットの' : ''}依頼：「${cut(title, 20)}」`, 'req-'+TASKS[0].id);
+    save(); closeSheet(); render(); toast(`${E(d.reqsend).name}さんに${TASKS[0].secret ? 'シークレットで' : ''}依頼しました。マイページの「依頼」に届きます`); return; }
   if (d.reqok){ const t = find(d.reqok); if (heldOf(S.me) >= HOLD_MAX){ toast(`抱えられるタスクは${HOLD_MAX}件までです`); return; } t.req='ok'; t.takenAt=Date.now(); t.status='doing'; markStart(t); save(); render(); toast('依頼に着手しました。ホームと「進行中」に入りました'); return; }
   if (d.reqno){ const t = find(d.reqno); t.req='declined'; save(); render(); toast('依頼を断りました'); return; }
   if (d.detail){ detailSheet(d.detail); return; }
@@ -2415,14 +2437,18 @@ document.addEventListener('click', e=>{
   if (d.savetask!==undefined){
     const title = document.getElementById('f-title').value.trim(); if (!title){ toast('タスク名を入れてください'); return; }
     if (blockPII(['f-title','f-desc','f-note'])) return;
+    const tkv = (document.getElementById('f-taker')||{}).value || '';
+    if (visRead().r==='secret' && !tkv){ toast('シークレットの担当者を選んでください'); return; }
     /* 出す人：新しく作るときは登録している本人。編集では元のまま */
     const v = {biz:document.getElementById('f-biz').value || null, owner:d.savetask ? find(d.savetask).owner : S.me, title, due:document.getElementById('f-due').value || iso(dayAdd(7)),
       status:document.querySelector('input[name="f-st"]:checked').value, prio:document.querySelector('input[name="f-pr"]:checked').value,
       prog:+document.getElementById('f-prog').value, ...visSave(), desc:document.getElementById('f-desc').value.trim(), note:document.getElementById('f-note').value.trim()};
     if (v.status==='done') v.prog = 100;
     if (v.status==='todo') v.start = null; else if (!(d.savetask && find(d.savetask).start)) v.start = iso(TODAY);
+    /* シークレット：担当者に依頼として届く（受けるまでは依頼のまま） */
+    if (v.secret){ const old = d.savetask ? find(d.savetask) : null; if (!old || old.taker!==tkv){ v.taker = tkv; v.req = 'pending'; v.status = 'todo'; v.start = null; pushTo([tkv], `${myNm()}さんからシークレットの依頼：「${cut(title, 20)}」`, 'sec-'+(d.savetask||'new')); } }
     if (d.savetask){ Object.assign(find(d.savetask), v); toast('保存しました'); }
-    else { TASKS.unshift({id:'t'+Date.now(), likes:0, liked:false, saved:false, comments:[], at:Date.now(), ...v}); S.view='home'; S.filter='all'; S.who=null; toast('タスクを登録しました'); }
+    else { TASKS.unshift({id:'t'+Date.now(), likes:0, liked:false, saved:false, comments:[], at:Date.now(), ...v}); S.view='home'; S.filter='all'; S.who=null; toast(v.secret ? `シークレットで登録しました。${E(tkv).name}さんの「依頼」に届きます` : 'タスクを登録しました'); }
     save(); closeSheet(); render(); window.scrollTo(0,0); return; }
   if (d.mon){ const b = S.month ? new Date(S.month) : new Date(TODAY.getFullYear(), TODAY.getMonth(), 1); b.setMonth(b.getMonth()+ +d.mon); S.month = +b; S.pick=null; render(); return; }
   if (d.act==='squad'){ const all = PEOPLE.filter(x=>x.id!==S.me && canUse(x));
