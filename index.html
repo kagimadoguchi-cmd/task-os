@@ -1632,7 +1632,7 @@ const openOf = id => VT().filter(t=>t.owner===id && t.status!=='done');
 /* 注目（しおり）は自分だけのもの。ほかの人には見えない */
 const isSaved = t => (t.savedBy||[]).includes(S.me);
 const FILTERS = [['all','すべて',t=>true],['todo','未着手',t=>stOf(t)==='todo'],['late','期限超過',isLate],['soon','7日以内',t=>t.status!=='done' && diff(t.due)>=0 && diff(t.due)<=7],['saved','注目',t=>isSaved(t)]];
-const av = (e, cls) => { const ph = (PROF[e.id]||{}).photo; return `<span class="av ${cls}" style="--pc:${e.color}">${ph?`<img src="${ph}" alt="">`:esc(e.name.trim()[0])}</span>`; };
+const av = (e, cls) => { e = e || {id:'', name:'？', color:'#8B919A'}; const ph = (PROF[e.id]||{}).photo; return `<span class="av ${cls}" style="--pc:${e.color}">${ph?`<img src="${ph}" alt="">`:esc(e.name.trim()[0])}</span>`; };
 
 /* ---------- 投稿 ---------- */
 /* 達成率：段階ごとのひとこと・目盛り・光るバー。画面に入ったときに 0% から伸びて数字が数え上がる */
@@ -1691,7 +1691,7 @@ function postHtml(t){
     <div class="tags">${t.appr==='pending'?'<span class="tg ap">役員の確認待ち</span>':t.appr==='ng'?'<span class="tg apng">差し戻し</span>':''}${t.secret?`<span class="tg sec">シークレット</span>`:''}${t.execOnly?'<span class="tg eo">役員タスク</span>':t.vis && t.vis.r!=='jimu'?`<span class="tg">${visText(t.vis)}公開</span>`:''}${t.biz && B(t.biz)?`<span class="tg" style="--bz:${B(t.biz).color};border-color:var(--bz);color:var(--bz)">${esc(B(t.biz).short)}</span>`:''}<span class="tg st-s">${s.l}</span><span class="tg">優先 ${PRIO[t.prio]}</span></div>
     <div class="cap">${e.id===t.owner?`<b>${esc(e.name)}</b>`:''}${esc(t.desc)}</div>
     ${t.note?`<div class="reply">└ ${esc(t.note)}</div>`:''}
-    ${t.comments.length?`<button class="cmore" data-cmt="${t.id}">${t.comments.length>1?`コメント${t.comments.length}件をすべて見る`:`${esc(E(last.by).name)}：${esc(last.text.slice(0,28))}${last.text.length>28?'…':''}`}</button>`:''}
+    ${t.comments.length?`<button class="cmore" data-cmt="${t.id}">${t.comments.length>1?`コメント${t.comments.length}件をすべて見る`:`${esc(EP(last.by).name)}：${esc(last.text.slice(0,28))}${last.text.length>28?'…':''}`}</button>`:''}
     ${progHtml(t, 'p'+t.id)}
     ${t.taker ? `<div class="taker"><span class="tk-l">担当</span><button class="tk-p" data-prof="${t.taker}">${av(EP(t.taker),'s28')}<b>${esc(EP(t.taker).name)}</b></button>${t.taker===S.me?'<em class="tk-me">あなたが受けました</em>':''}</div>` : ''}
     ${canTake(t) ? `<div class="take"><button class="btn wide" data-take="${t.id}">着手（先着${OFFER_MAX}名）</button></div>` : ''}
@@ -1906,7 +1906,7 @@ function actHtml(){
   list.forEach(e=>{ if (e.k==='like'){ const g = rows.find(x=>x.k==='like' && x.t===e.t && x.sec===sect(e.at)); if (g){ g.by.push(e.by); return; } rows.push({...e, by:[e.by], sec:sect(e.at)}); } else rows.push({...e, by:[e.by], sec:sect(e.at)}); });
   /* 履歴は新しいものから50件まで */
   const ACT_MAX = 50; rows.splice(ACT_MAX);
-  const nm = id => `<b>${esc(E(id).name)}</b>`;
+  const nm = id => `<b>${esc(EP(id).name)}</b>`;
   const who = ids => ids.length===1 ? `${nm(ids[0])}さん` : ids.length===2 ? `${nm(ids[0])}さん、${nm(ids[1])}さん` : `${nm(ids[0])}さん、${nm(ids[1])}さん、ほか${ids.length-2}人`;
   const txt = e => e.k==='like' ? `${who(e.by)}があなたのタスクにいいねしました。`
     : e.k==='cmt' ? `${who(e.by)}がコメントしました：${esc(e.text)}`
@@ -2386,7 +2386,7 @@ document.addEventListener('focusout', e=>{ if (e.target.id==='c-in') setTimeout(
 function cmtSheet(id){
   const t = TASKS.find(x=>x.id===id);
   sheet(`<div class="cs-grab" aria-hidden="true"></div><div class="cs-h"><b>コメント</b><button class="back" data-act="close" aria-label="閉じる">${ic('x')}</button></div>
-    <div class="cs-list">${t.comments.slice().reverse().map(c=>{ const e = E(c.by); return `<div class="cm">${av(e,'s32')}<div><p><b>${esc(e.name)}</b> <small>${ago(c.at)}</small></p><p class="cm-t">${esc(c.text)}</p></div></div>`; }).join('') || '<div class="cs-empty"><b>まだコメントはありません</b><small>最初のコメントを書いてみましょう</small></div>'}</div>
+    <div class="cs-list">${t.comments.slice().reverse().map(c=>{ const e = EP(c.by); return `<div class="cm">${av(e,'s32')}<div><p><b>${esc(e.name)}</b> <small>${ago(c.at)}</small></p><p class="cm-t">${esc(c.text)}</p></div></div>`; }).join('') || '<div class="cs-empty"><b>まだコメントはありません</b><small>最初のコメントを書いてみましょう</small></div>'}</div>
     <div class="cs-in">${av(E(S.me),'s32')}<textarea id="c-in" rows="1" placeholder="${esc(E(S.me).name)}としてコメントを追加…" aria-label="コメント"></textarea><button data-addcmt="${id}">投稿する</button></div>
   `, 'cmts');
   setTimeout(()=>{ fitCmts(); const l = document.querySelector('.cs-list'); if (l) l.scrollTop = 0; });
@@ -2401,6 +2401,9 @@ const blockPII = ids => { for (const id of ids){ const el = document.getElementB
 document.addEventListener('click', e=>{
   const el = e.target.closest('button'); if (!el){ if (e.target.id==='scrim') closeSheet(); return; }
   const d = el.dataset, find = id => TASKS.find(x=>x.id===id);
+  /* ほかの端末で消されたタスクのボタンを押した時は、エラーにせず知らせて、画面を新しくする */
+  if (['like','save','take','done','undo','start','seen','reqok','reqno','cmt','edit','addcmt','tcsend','apok','apng','apngsend'].some(k=>d[k] && !find(d[k])) || (d.savetask && !find(d.savetask)) || (d.sendto && d.task && !find(d.task))){
+    closeSheet(); render(); toast('このタスクは削除されたため、操作できません'); return; }
   if (lastView) lastView.v.y = window.scrollY;
   if (d.coi!==undefined && !el.dataset.go){ el.dataset.go = '1'; setTimeout(()=>{ el.click(); }, 260); return; }
   if (d.coi!==undefined){ if (!meIsExec()) return; const x = d.coi==='x' || d.coi==='b'; S.scope = x ? d.coi : +d.coi; if (!x) S.coi = +d.coi; S.view = 'home'; render(); window.scrollTo(0,0); toast(x ? `${scopeName()}だけを見ています` : `${COMPANIES[S.scope].name}として見ています`); return; }
@@ -3015,7 +3018,7 @@ function stOpen(pid){
     return `<i class="up"></i><span class="cnt">${ic('eye')}<b class="num">${vs.length}</b><span class="lk">${ic('heart')}</span><b class="num">${lk}</b></span><small>上にスワイプで見た人</small>`; };
   const sheetHtml = x => { const vs = stvOf(x.id).sort((a,b)=>(b.like?1:0)-(a.like?1:0) || (b.likeAt||b.at)-(a.likeAt||a.at)), lk = vs.filter(v=>v.like).length;
     return `<div class="svs-grab"></div><div class="svs-h"><span>${ic('eye')}<b class="num">${vs.length}</b>人が見ました</span><span class="svs-lk">${ic('heart')}<b class="num">${lk}</b></span><button class="svs-x" aria-label="閉じる">${ic('x')}</button></div>
-      <div class="svs-list">${vs.length ? vs.map(v=>{ const e = E(v.by); return `<div class="svs-r">${av(e,'s40')}<span class="t"><b>${esc(e.name)}</b><small>${ago(v.at)}に見ました</small></span>${v.like?`<i class="svs-hrt" aria-label="いいね">${ic('heart')}</i>`:''}</div>`; }).join('') : '<p class="svs-none">まだだれも見ていません</p>'}</div>`; };
+      <div class="svs-list">${vs.length ? vs.map(v=>{ const e = EP(v.by); return `<div class="svs-r">${av(e,'s40')}<span class="t"><b>${esc(e.name)}</b><small>${ago(v.at)}に見ました</small></span>${v.like?`<i class="svs-hrt" aria-label="いいね">${ic('heart')}</i>`:''}</div>`; }).join('') : '<p class="svs-none">まだだれも見ていません</p>'}</div>`; };
   const openSheet = () => { const x = list[si]; if (!x || x.by!==S.me || ov.querySelector('.sv-sheet')) return;
     const sh = document.createElement('div'); sh.className = 'sv-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','見た人'); sh.innerHTML = sheetHtml(x);
     ov.querySelector('.sv-in').appendChild(sh); ov.classList.add('sheet','typing','hold');
