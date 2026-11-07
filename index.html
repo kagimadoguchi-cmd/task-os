@@ -1812,7 +1812,9 @@ const notifSet = on => { try { const o = JSON.parse(localStorage.getItem(NKEY)||
 const actNew = () => { if (!notifOn()) return 0; const t0 = actSeen(); return actEvents().filter(e=>actMine(e) && e.at > t0).length; };
 /* ❤の右上に未読の数（赤い丸に白い数字）。ホーム画面に追加したアプリのアイコンにも同じ数を出す（対応している端末だけ） */
 let appBadgeN = -1, heartWob = 0;
-const appBadge = n => { if (n===appBadgeN) return; appBadgeN = n; try { if (n > 0 && navigator.setAppBadge) navigator.setAppBadge(n).catch(()=>{}); else if (navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); } catch(e){} };
+const appBadge = n => { if (n===appBadgeN) return; appBadgeN = n; try { if (n > 0 && navigator.setAppBadge) navigator.setAppBadge(n).catch(()=>{}); else if (navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); } catch(e){}
+  /* 通知を受け取る係（sw.js）にも本当の未読の数を教える。アプリを閉じている間は、そこから通知のたびに 1 ずつ増える */
+  try { navigator.serviceWorker.ready.then(r=>{ if (r.active) r.active.postMessage({type:'badge', n}); }).catch(()=>{}); } catch(e){} };
 const actBtn = cls => { const n = S.view!=='act' ? actNew() : 0; if (!cls) appBadge(S.screen==='app' ? n : 0);
   return `<button class="top-heart ${cls||''} ${n?'has-new':''} ${Date.now()-heartWob < 400 ? 'wobble' : ''}" data-view="act" ${S.view==='act'?'aria-current="page"':''} aria-label="お知らせ${n ? `（未読 ${n}件）` : ''}">${ic('act')}${n ? `<i class="act-badge num" aria-hidden="true">${n>99?'99+':n}</i>` : ''}</button>`; };
 /* お知らせの画面の上：スマホに届くプッシュ通知の受け取り */
