@@ -1870,6 +1870,8 @@ function loginHtml(){
     body = `<h1>デバッグ：だれで入りますか？</h1><p class="lg-hint">パスワードなしで、選んだ人として入ります。役職ごとに並んでいます。</p>
       ${ROLE_ORDER.map(r=>{ const l = PEOPLE.filter(p=>p.role===r && canUse(p)); return l.length ? `<div class="lg-grp"><b>${ROLE[r]}<small>${l.length}人</small></b><div class="names">${l.map(p=>`<button data-dbgas="${p.id}">${av(p,'s28')}<span><b>${esc(p.name)}</b><small>${esc(roleText(p))}${p.admin?'・管理者':''}</small></span></button>`).join('')}</div></div>` : ''; }).join('')}
       <button class="lg-link" data-act="lback">ログイン画面に戻る</button>`;
+  } else if (st===0 && PEND_ME){
+    body = `<h1 id="login-h">ログイン</h1><p class="lg-hint">前回のログインを確認しています…</p>`;
   } else if (st===0){
     body = `<h1 id="login-h">ログイン</h1>
       <div class="field"><label for="lpw">パスワード</label><input id="lpw" type="password" autocomplete="current-password"></div>
@@ -2736,7 +2738,8 @@ function supaDb(sb){
   };
 }
 let DBX = null, liveWait = false, roWarned = false;
-const SESS_KEY = 'exec-task-board-session-v1', SESS_DAYS = 7;
+const SESS_KEY = 'exec-task-board-session-v1', SESS_DAYS = 7; /* 最後に使ってから7日間はログインなしで入れる（ページの更新や開き直しでも続く） */
+let PEND_ME = null; /* 前回のログインは有効だが、人の一覧がまだ届いていない時の本人 id。届いたら入る */
 const SYNCED = new Map(), PSYNCED = new Map(), DSYNCED = new Map(), CHAIN = new Map();
 const jkey = o => JSON.stringify(o);
 /* 同じ置き場への書きこみは1つずつ順番に */
@@ -2797,13 +2800,17 @@ function startSync(db){
   one('app/block', BKEY, b=>b.list, v=>v===undefined ? BLOCK : (BLOCK = v));
   one('app/foot', FKEY, b=>b.m, v=>v===undefined ? FOOT : (FOOT = v));
   db.doc('app/people').onSnapshot(d=>{ if (!d.exists) return; const b = JSON.parse(jkey(d.data())), list = Array.isArray(b.list) ? b.list : [], hide = Array.isArray(b.hide) ? b.hide : []; DSYNCED.set('app/people', jkey(d.data()));
-    if (jkey(list)===jkey(ADDP) && jkey(hide)===jkey(HIDEP)) return; ADDP = list; HIDEP = hide; try { localStorage.setItem(NPKEY, jkey(ADDP)); localStorage.setItem(NHKEY, jkey(HIDEP)); } catch(e){} mergeAdded(ADDP); refreshExecs(); liveRender(); }, fail);
+    if (jkey(list)===jkey(ADDP) && jkey(hide)===jkey(HIDEP)){ if (PEND_ME){ sessResume(); render(); } return; } ADDP = list; HIDEP = hide; try { localStorage.setItem(NPKEY, jkey(ADDP)); localStorage.setItem(NHKEY, jkey(HIDEP)); } catch(e){} mergeAdded(ADDP); refreshExecs(); if (PEND_ME){ sessResume(); render(); return; } liveRender(); }, fail);
 }
 /* ログインをたもつ：最後に使ってから7日のあいだは、開くとそのまま入れる（ログアウトで消える） */
 function sessKeep(){ try { const o = JSON.parse(localStorage.getItem(SESS_KEY)||'null'); if (!o || o.me!==S.me || Date.now()-o.at > 36e5) localStorage.setItem(SESS_KEY, JSON.stringify({me:S.me, at:Date.now()})); } catch(e){} }
 function sessClear(){ try { localStorage.removeItem(SESS_KEY); } catch(e){} }
 (()=>{ try { const o = JSON.parse(localStorage.getItem(SESS_KEY)||'null'); if (!o) return;
-  if (Date.now()-o.at < SESS_DAYS*864e5 && canUse(E(o.me))){ S.me = o.me; S.screen = 'app'; S.view = 'home'; } else sessClear(); } catch(e){} })();
+  if (Date.now()-o.at >= SESS_DAYS*864e5){ sessClear(); return; }
+  if (canUse(E(o.me))){ S.me = o.me; S.screen = 'app'; S.view = 'home'; }
+  else { PEND_ME = o.me; setTimeout(()=>{ if (PEND_ME){ PEND_ME = null; if (S.screen==='login') render(); } }, 8000); } } catch(e){} })();
+/* 人の一覧が届いた時：前回のログインが残っていれば、そのまま入る */
+function sessResume(){ if (!PEND_ME) return; const id = PEND_ME; PEND_ME = null; if (canUse(E(id))){ S.me = id; S.screen = 'app'; S.view = 'home'; } else sessClear(); }
 /* 共有の置き場につなぐ。claude.ai のアーティファクトの中ではアーティファクトの置き場、それ以外（GitHub などに置いた時）は Supabase。どちらもなければこの端末の保存だけ */
 try {
   if (window.claude && window.claude.use) window.claude.use('db').then(db=>{ if (db) startSync(db); else document.body.classList.add('guest'); }).catch(()=>{});
