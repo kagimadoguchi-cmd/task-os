@@ -1524,7 +1524,7 @@ function postHtml(t){
   const last = t.comments[t.comments.length-1];
   return `<article class="post" style="--sc:${s.c};--sbg:${s.bg}">
     <div class="ph"><button class="avr" data-prof="${e.id}" aria-label="${esc(e.name)}のページ" style="border:0">${av(e,'s40')}</button>
-      <div class="who"><b>${esc(e.name)}${isExecP(e)?VF:''}</b><small>${esc(isExecP(e)?e.title:roleText(e))} ・ ${esc(isExecP(e)?e.area:(unitsOf(e.id)[0]||{}).label||'')}</small></div></div>
+      <div class="who"><b>${esc(e.name)}${isExecP(e)?VF:''}</b><small>依頼者 ・ ${esc(isExecP(e)?e.title:roleText(e))} ・ ${esc(isExecP(e)?e.area:(unitsOf(e.id)[0]||{}).label||'')}</small></div></div>
     <button class="panel" data-detail="${t.id}" aria-label="${esc(t.title)}の内容を見る">${wm(k)}
       <span class="spill">${k==='done'?ic('check'):''}${s.l}</span><span class="q">${t.status==='done'?'<small class="left">完了</small>':diff(t.due)<0?`<small class="left ng">${-diff(t.due)}日超過</small>`:diff(t.due)===0?'<small class="left warn">今日まで</small>':`<small class="left ${diff(t.due)<=3?'warn':''}">残り${diff(t.due)}日</small>`}</span>
       <span class="big">${s.big}</span>
@@ -2045,7 +2045,7 @@ function editSheet(id){
     <div class="field"><label for="f-title">タスク名</label><input id="f-title" value="${esc(t.title)}" placeholder="例：中期経営計画の骨子をまとめる"></div>
     ${F.eo}
     ${F.co}
-    <p style="margin:0;font-size:13px;color:var(--ink3)">出す人：${esc((E(t.owner)||{}).name || '')}</p>
+    <p style="margin:0;font-size:13px;color:var(--ink3)">依頼者：${esc((E(t.owner)||{}).name || '')}</p>
     <div class="field"><label for="f-due">期限</label><input id="f-due" type="date" value="${t.due}"><small class="hint">開始日は、だれかが着手した日になります</small></div>
     <div class="field"><label>状態</label><div class="seg">${['todo','doing','done'].map(k=>`<label><input type="radio" name="f-st" value="${k}" ${t.status===k?'checked':''}>${STATUS[k].l}</label>`).join('')}</div></div>
     <div class="field"><label>優先度</label><div class="seg">${['high','mid','low'].map(k=>`<label><input type="radio" name="f-pr" value="${k}" ${t.prio===k?'checked':''}>${PRIO[k]}</label>`).join('')}</div></div>
@@ -2111,7 +2111,7 @@ function wzConfirm(){
   const st = (document.querySelector('input[name="f-st"]:checked')||{}).value || 'todo', pr = (document.querySelector('input[name="f-pr"]:checked')||{}).value || 'mid';
   const v = visRead(), due = $('f-due').value, prog = st==='done' ? 100 : +$('f-prog').value;
   const row = (k, val, cls) => val ? `<div><b>${k}</b><span class="${cls||''}">${esc(val)}</span></div>` : '';
-  $('wz-sum').innerHTML = row('タスク名', title, 'big') + row('見せる範囲', v.r==='exec' ? '役員のみ' : ROLE[v.r]+'まで') + row('事業', sel('f-biz')) + row('出す人', (E(S.me)||{}).name || '')
+  $('wz-sum').innerHTML = row('タスク名', title, 'big') + row('見せる範囲', v.r==='exec' ? '役員のみ' : ROLE[v.r]+'まで') + row('事業', sel('f-biz')) + row('依頼者', (E(S.me)||{}).name || '')
     + row('期限', `${ymd(due)}${diff(due)>=0 ? `（あと${diff(due)}日）` : '（過ぎています）'}`) + row('優先度', PRIO[pr]) + row('状態', `${STATUS[st].l}・${prog}%`)
     + row('内容', $('f-desc').value.trim()) + row('メモ', $('f-note').value.trim());
   wzShow(WZ_C);
@@ -2130,7 +2130,7 @@ function detailSheet(id){
   sheet(`${head('タスクの内容')}
     <div class="dt-head" style="--sc:${st.c};--sbg:${st.bg}"><span class="spill">${st.l}</span><h3>${esc(t.title)}</h3></div>
     <dl class="dl">
-      <dt>出した人</dt><dd><button class="tk-p" data-prof="${e.id}">${av(e,'s28')}<b>${esc(e.name)}</b></button></dd>
+      <dt>依頼者</dt><dd><button class="tk-p" data-prof="${e.id}">${av(e,'s28')}<b>${esc(e.name)}</b></button></dd>
       <dt>担当</dt><dd>${t.taker?`<button class="tk-p" data-prof="${t.taker}">${av(E(t.taker),'s28')}<b>${esc(E(t.taker).name)}</b></button>`:'まだだれも受けていません'}</dd>
       <dt>期間</dt><dd class="num">${startOf(t) ? `${ymd(startOf(t))}（着手した日）〜 ` : 'まだ着手していません・期限 '}${ymd(t.due)}${t.status!=='done'?`（${diff(t.due)<0?`${-diff(t.due)}日過ぎ`:diff(t.due)===0?'今日まで':`あと${diff(t.due)}日`}）`:''}</dd>
       <dt>優先度</dt><dd>${PRIO[t.prio]}</dd>
