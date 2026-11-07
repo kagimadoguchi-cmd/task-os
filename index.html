@@ -1409,8 +1409,9 @@ const OFFER_MAX = 1;   /* 1タスクを受けられる人数（あとで変え�
 const HOLD_MAX = 5;    /* 1人が抱えられるタスクの数（あとで変えるときはここ） */
 const isExecP = p => !!p && p.role==='exec';
 const meIsExec = () => isExecP(E(S.me));
-/* タスクを登録できる人：部長以上（役員・スーパー管理者・総合管理・部長） */
-const canMake = () => { const p = E(S.me); return !!p && ['exec','super','general','bucho'].includes(p.role); };
+/* タスクを登録できる人：部長以上（役員・スーパー管理者・総合管理・部長）。例外として、システム開発部門の人は役職に関係なく登録できる */
+const MAKE_BIZ = ['sys'];
+const canMake = () => { const p = E(S.me); return !!p && (['exec','super','general','bucho'].includes(p.role) || MAKE_BIZ.includes(p.biz)); };
 /* 抱えている数＝受けたタスクのうち、未着手・進行中・期限超過のもの */
 const HOLD_STATES = ['todo','doing','late'];
 const heldOf = id => TASKS.filter(t=>t.taker===id && !isPendingReq(t) && HOLD_STATES.includes(stOf(t))).length;
@@ -2332,7 +2333,7 @@ document.addEventListener('click', e=>{
   if (d.reset){ const p = E(d.reset); sheet(`${head('パスワードをリセットしますか？')}<p style="margin:0;color:var(--ink3)">${esc(p.name)}さんは、次から共通パスワードで入り、もう一度自分のパスワードを決めます。</p>
     <div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-doreset="${p.id}">リセットする</button></div>`); return; }
   if (d.doreset){ const p = E(d.doreset); p.pw=null; p.reg=false; closeSheet(); render(); toast(`${p.name}さんのパスワードをリセットしました`); return; }
-  if (d.act==='new'){ if (!canMake()){ toast('タスクを登録できるのは部長以上です'); return; } editSheet(null); return; }
+  if (d.act==='new'){ if (!canMake()){ toast('タスクを登録できるのは部長以上（とシステムの人）です'); return; } editSheet(null); return; }
   if (d.act==='wzconfirm'){ wzConfirm(); return; }
   if (d.act==='close'){ closeSheet(); return; }
 });
