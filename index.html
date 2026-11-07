@@ -1265,7 +1265,7 @@ const COMPANIES = [
 const UNITS = COMPANIES.flatMap(c=>c.biz.map((b,j)=>({id:c.k+'-'+j, co:c.name, biz:b.n, at:b.at, label:c.name.replace('株式会社','')+' '+b.n.replace('事業部',''), })));
 /* 管理のいちばん上の「役員」の欄（最初は役員の人が入っている） */
 UNITS.unshift({id:'exec', co:'役員', biz:'役員', at:[], label:'役員'});
-const UKEY = 'exec-task-board-units-v1';
+const UKEY = 'exec-task-board-units-v2';
 let UMEM; try { UMEM = JSON.parse(localStorage.getItem(UKEY)) || {}; } catch(e){ UMEM = {}; }
 const saveUnits = () => { try { localStorage.setItem(UKEY, JSON.stringify(UMEM)); } catch(e){} pushDoc('app/units', {m:UMEM}); };
 /* はじめの振り分け（テスト用）：DUNK 水道事業部に 山本（課長）・森（社員）・藤田（事務）・大野（事務） */
@@ -1318,21 +1318,27 @@ const TRIAL_BIZ = ['key','sys'];
 /* 試しに入れる人（部門に関係なく個別に使えるようにしたい時に id を書く） */
 const TRIAL = [];
 /* ログイン不可（退職者など）：役員だけが設定できる。この端末に保存 */
-const BKEY = 'exec-task-board-block-v1';
+const BKEY = 'exec-task-board-block-v2';
 let BLOCK; try { BLOCK = JSON.parse(localStorage.getItem(BKEY)) || []; } catch(e){ BLOCK = []; }
 const saveBlock = () => { try { localStorage.setItem(BKEY, JSON.stringify(BLOCK)); } catch(e){} pushDoc('app/block', {list:BLOCK}); };
 const isBlocked = p => !!p && BLOCK.includes(p.id);
 /* 管理画面で新しく作った担当者（この端末と共有データに保存）。パスワードは入れない */
-const NPKEY = 'exec-task-board-people-v1';
+const NPKEY = 'exec-task-board-people-v2';
 let ADDP; try { ADDP = JSON.parse(localStorage.getItem(NPKEY)) || []; } catch(e){ ADDP = []; }
-/* 共有の置き場の人を PEOPLE に入れる。pwh は本人が決めたパスワードのハッシュ（あれば登録済み） */
+/* パスワードのハッシュは人ごとに共有の置き場の pw/本人id に入れる（PWH：id → ハッシュ）。この端末にも控えを残す */
+const PWKEY = 'exec-task-board-pw-v1';
+let PWH; try { PWH = JSON.parse(localStorage.getItem(PWKEY)) || {}; } catch(e){ PWH = {}; }
+const isReg = p => !!p && !!(PWH[p.id] || p.pwh);
+/* 共有の置き場の人を PEOPLE に入れる。pwh は前の版で一覧に入れていたハッシュ（念のため読む） */
 const mergeAdded = list => { list.forEach(x=>{ if (!x || !x.id || !x.name) return; const o = PEOPLE.find(p=>p.id===x.id);
-  if (o) Object.assign(o, {name:x.name, role:x.role, biz:x.biz, title:x.title, area:x.area, color:x.color, pwh:x.pwh||null, reg:!!x.pwh}); else PEOPLE.push({...x, admin:x.role==='exec', reg:!!x.pwh, pwh:x.pwh||null, pw:null, added:true}); }); };
-/* パスワードの保存：本人のハッシュを共有の置き場（app/people）に入れる。null で未登録に戻す */
-const setPw = (pid, pwh) => { const p = E(pid); if (p){ p.pwh = pwh; p.reg = !!pwh; } const a = ADDP.find(x=>x.id===pid); if (a){ a.pwh = pwh; } else if (p) ADDP.push({id:p.id, name:p.name, role:p.role, biz:p.biz, title:p.title, area:p.area, color:p.color, pwh}); saveAdded(); };
+  if (o) Object.assign(o, {name:x.name, role:x.role, biz:x.biz, title:x.title, area:x.area, color:x.color, pwh:x.pwh||null, reg:!!(PWH[x.id] || x.pwh)}); else PEOPLE.push({...x, admin:x.role==='exec', reg:!!(PWH[x.id] || x.pwh), pwh:x.pwh||null, pw:null, added:true}); }); };
+/* パスワードの保存：本人の分だけを pw/本人id に書く（ほかの人の分にはさわらない）。null で未登録に戻す */
+const setPw = (pid, h) => { const p = E(pid); if (h) PWH[pid] = h; else delete PWH[pid]; if (p){ p.reg = !!h; if (!h) p.pwh = null; }
+  try { localStorage.setItem(PWKEY, JSON.stringify(PWH)); } catch(e){}
+  if (DBX) dbWrite('pw/'+pid, ()=> h ? DBX.doc('pw/'+pid).set({h, at:Date.now()}) : DBX.doc('pw/'+pid).delete()); };
 mergeAdded(ADDP);
 /* 隠す人（見本の役員など）。共有データ app/people の hide に入れる */
-const NHKEY = 'exec-task-board-hide-v1';
+const NHKEY = 'exec-task-board-hide-v2';
 let HIDEP; try { HIDEP = JSON.parse(localStorage.getItem(NHKEY)) || []; } catch(e){ HIDEP = []; }
 const saveAdded = () => { try { localStorage.setItem(NPKEY, JSON.stringify(ADDP)); localStorage.setItem(NHKEY, JSON.stringify(HIDEP)); } catch(e){} pushDoc('app/people', {list:ADDP, hide:HIDEP}); };
 const canUse = p => !!p && !isBlocked(p) && !HIDEP.includes(p.id) && (!EXEC_ONLY || p.role==='exec' || TRIAL_BIZ.includes(p.biz) || TRIAL.includes(p.id) || !!p.added);
@@ -1357,17 +1363,28 @@ const T = (owner, title, due, status, prog, prio, desc, note, likes) => ({id:'t'
 const SEED = [];
 
 /* 保存（この端末のブラウザに残す） */
-const KEY = 'exec-task-board-v5'; /* 見本の文を変えたので v2（前の保存は使わない） */
+const KEY = 'exec-task-board-v6'; /* 見本の文を変えたので v2（前の保存は使わない） */
 let TASKS;
 try { TASKS = JSON.parse(localStorage.getItem(KEY)) || SEED; } catch(e){ TASKS = SEED; }
 /* 開始日は「着手した日」。まだ着手していないタスクには持たせない */
 TASKS.forEach(t=>{ if (t.status==='todo') delete t.start; });
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(TASKS)); } catch(e){} pushTasks(); };
-const PKEY = 'exec-task-board-profile-v2';
+/* 自分がいま書いたコメント・押したいいねを2分間おぼえておく。ほかの人がほぼ同時に同じタスクを保存して、
+   自分の分が入っていない版が共有の置き場から届いても、足し直してもう一度保存する（消えないように） */
+const RECENT = [];
+const addCm = (t, text) => { const c = {by:S.me, at:Date.now(), text}; t.comments = t.comments || []; t.comments.push(c); RECENT.push({k:'cm', t:t.id, c, at:Date.now()}); };
+const noteLike = (tid, on, lat) => { RECENT.push({k:'like', t:tid, on, lat, at:Date.now()}); };
+const reconcile = arr => { const lim = Date.now() - 2*6e4; let ch = false;
+  for (let i = RECENT.length-1; i >= 0; i--){ const r = RECENT[i]; if (r.at < lim){ RECENT.splice(i, 1); continue; } const t = arr.find(x=>x.id===r.t); if (!t) continue;
+    if (r.k==='cm'){ t.comments = t.comments || []; if (!t.comments.some(c=>c.by===r.c.by && c.at===r.c.at)){ t.comments.push(r.c); t.comments.sort((a,b)=>a.at-b.at); ch = true; } }
+    else { const has = (t.likedBy||[]).includes(S.me); if (has!==r.on){ t.likedBy = r.on ? (t.likedBy||[]).concat(S.me) : (t.likedBy||[]).filter(x=>x!==S.me); t.likes = Math.max(0, (t.likes||0) + (r.on ? 1 : -1));
+      t.likeAt = {...(t.likeAt||{})}; if (r.on) t.likeAt[S.me] = r.lat; else delete t.likeAt[S.me]; ch = true; } } }
+  return ch; };
+const PKEY = 'exec-task-board-profile-v3';
 let PROF; try { PROF = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch(e){ PROF = {}; }
 if (!PROF.kiryu) PROF.kiryu = {goal:'3年で売上を1.5倍に。どの事業でも、人がちゃんと育つ会社にしたい。', vision:'現場の声がいちばん早く届く社長でいたいです。'};
 const saveProf = () => { try { localStorage.setItem(PKEY, JSON.stringify(PROF)); } catch(e){} pushProf(); };
-const FKEY = 'exec-task-board-foot-v1', FOOT_MAX = 50;
+const FKEY = 'exec-task-board-foot-v2', FOOT_MAX = 50;
 let FOOT; try { FOOT = JSON.parse(localStorage.getItem(FKEY)) || null; } catch(e){ FOOT = null; }
 if (!FOOT){ const h = 36e5; FOOT = {kiryu:[{by:'u1',at:Date.now()-2*h},{by:'sakaki',at:Date.now()-5*h},{by:'makabe',at:Date.now()-26*h},{by:'u1',at:Date.now()-50*h}], sakaki:[{by:'kiryu',at:Date.now()-3*h}]}; }
 const saveFoot = () => { try { localStorage.setItem(FKEY, JSON.stringify(FOOT)); } catch(e){} pushDoc('app/foot', {m:FOOT}); };
@@ -2174,7 +2191,7 @@ document.addEventListener('click', e=>{
       setTimeout(()=>{ if (S.view==='list' && !document.getElementById('scrim')) detailSheet(t.id); }, 650); }, 30); return; }
   if (d.act==='notif'){ const on = !notifOn(); notifSet(on); render(); toast(on ? '通知をオンにしました' : '通知をオフにしました'); return; }
   if (d.like){ const t = find(d.like); t.likedBy = t.likedBy || []; const on = t.likedBy.includes(S.me);
-    t.likedBy = on ? t.likedBy.filter(x=>x!==S.me) : t.likedBy.concat(S.me); t.likes += on ? -1 : 1; t.likeAt = {...(t.likeAt||{})}; if (on) delete t.likeAt[S.me]; else t.likeAt[S.me] = Date.now(); save(); render(); popBtn(`[data-like="${t.id}"]`, !on, 'heart'); return; }
+    t.likedBy = on ? t.likedBy.filter(x=>x!==S.me) : t.likedBy.concat(S.me); t.likes += on ? -1 : 1; t.likeAt = {...(t.likeAt||{})}; if (on) delete t.likeAt[S.me]; else t.likeAt[S.me] = Date.now(); noteLike(t.id, !on, t.likeAt[S.me]); save(); render(); popBtn(`[data-like="${t.id}"]`, !on, 'heart'); return; }
   if (d.save){ const t = find(d.save); t.savedBy = (t.savedBy||[]).includes(S.me) ? t.savedBy.filter(x=>x!==S.me) : (t.savedBy||[]).concat(S.me); save(); render(); popBtn(`[data-save="${t.id}"]`, isSaved(t), 'mark'); toast(isSaved(t)?'注目に入れました':'注目から外しました'); return; }
   if (d.take){ const t = find(d.take);
     if (t.taker){ toast(`受付終了です。先に${EP(t.taker).name}さんが受けました`); render(); return; }
@@ -2199,16 +2216,16 @@ document.addEventListener('click', e=>{
   if (d.edit){ if (!canEdit(find(d.edit))){ toast('編集できるのは、作った人だけです'); return; } editSheet(d.edit); return; }
   if (d.cmt){ cmtSheet(d.cmt); return; }
   if (d.share){ const t = find(d.share); sheet(`${head('ほかの役員に送る')}<div class="lst">${EXECS.filter(x=>x.id!==S.me).map(x=>`<button class="row" data-sendto="${x.id}" data-task="${t.id}">${av(x,'s40')}<span class="t"><b>${esc(x.name)}</b><small>${esc(x.title)}</small></span><span class="pb">送る</span></button>`).join('')}</div>`); return; }
-  if (d.sendto){ const t = find(d.task); t.comments.push({by:S.me, at:Date.now(), text:`${E(d.sendto).name}さん、こちらも見ておいてください。`}); save(); closeSheet(); render(); toast(`${E(d.sendto).name}さんに送りました`); return; }
+  if (d.sendto){ const t = find(d.task); addCm(t, `${E(d.sendto).name}さん、こちらも見ておいてください。`); save(); closeSheet(); render(); toast(`${E(d.sendto).name}さんに送りました`); return; }
   if (d.menu){ const t = find(d.menu); sheet(`<div class="menu"><button data-detail="${t.id}">内容を見る</button>${canEdit(t)?`<button data-edit="${t.id}">編集する</button>`:''}${canEdit(t)?`<button class="red" data-askdel="${t.id}">削除する</button>`:''}<button data-act="close">キャンセル</button></div>`); return; }
   if (d.askdel){ sheet(`${head('このタスクを削除しますか？')}<p style="margin:0;color:var(--ink3)">削除すると元に戻せません。</p><div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-del="${d.askdel}">削除する</button></div>`); return; }
   if (d.del){ TASKS = TASKS.filter(x=>x.id!==d.del); save(); closeSheet(); render(); toast('削除しました'); return; }
   if (d.tcsend){ const inp = document.getElementById('tc-in'), v = inp.value.trim(); if (!v){ toast('コメントを書いてください'); return; } if (blockPII(['tc-in'])) return;
-    const t = find(d.tcsend); t.comments.push({by:S.me, at:Date.now(), text:v}); save(); inp.value = ''; inp.style.height = '';
+    const t = find(d.tcsend); addCm(t, v); save(); inp.value = ''; inp.style.height = '';
     const l = document.getElementById('tc-list'); if (l){ l.innerHTML = tchatHtml(t); l.scrollTop = 0; } const n = document.getElementById('tc-n'); if (n) n.textContent = t.comments.length;
     render(); return; }
   if (d.addcmt!==undefined){ const inp = document.getElementById('c-in'), v = inp.value.trim(); if (!v){ toast('コメントを書いてください'); return; } if (blockPII(['c-in'])) return;
-    find(d.addcmt).comments.push({by:S.me, at:Date.now(), text:v}); save(); render(); cmtSheet(d.addcmt); return; }
+    addCm(find(d.addcmt), v); save(); render(); cmtSheet(d.addcmt); return; }
   if (d.act==='wznext'){ wzNext(); return; }
   if (d.act==='wzprev'){ const k = +document.getElementById('wz').dataset.step; wzShow(Math.max(1, k-1)); return; }
   if (d.savetask!==undefined){
@@ -2257,14 +2274,14 @@ document.addEventListener('click', e=>{
   if (d.asme){ S.me = d.asme; try { localStorage.setItem('exec-task-board-me', S.me); } catch(e){} closeSheet(); S.view='my'; render(); toast(`${E(S.me).name}さんとして使っています`); return; }
   if (d.act==='lpwok'){ const v = document.getElementById('lpw').value; if (!v){ toast('パスワードを入れてください'); return; }
     if (v===COMMON_PW){ S.loginStep=1; render(); return; }
-    (async()=>{ const h = await pwHash(v); const p = PEOPLE.find(x=>x.reg && (x.pwh===h || (x.pw && x.pw===v))); if (!p){ toast('パスワードが違います'); return; }
+    (async()=>{ const h = await pwHash(v); const p = PEOPLE.find(x=>PWH[x.id]===h || x.pwh===h || (x.pw && x.pw===v)); if (!p){ toast('パスワードが違います'); return; }
       if (isBlocked(p)){ toast('このアカウントはログインできません。役員に連絡してください'); return; }
       if (!canUse(p)){ toast('いまは役員・カギ・システムで試しています。使えるようになったらお知らせします'); return; }
       S.me=p.id; S.screen='app'; S.view='home'; render(); toast(`${p.name} さんでログインしました`); })(); return; }
   if (d.lname){ S.loginName=d.lname; S.loginStep=2; render(); setTimeout(()=>{ const i = document.getElementById('pw1'); if (i) i.focus(); }); return; }
   if (d.act==='pwset'){ const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value;
     if (a.length<8){ toast('パスワードは8文字以上にしてください'); return; } if (a!==b){ toast('2回の入力が合っていません'); return; }
-    (async()=>{ const h = await pwHash(a); if (a===COMMON_PW || PEOPLE.some(x=>x.pwh===h || (x.pw && x.pw===a))){ toast('このパスワードは使えません。別のものにしてください'); return; }
+    (async()=>{ const h = await pwHash(a); if (a===COMMON_PW || Object.values(PWH).includes(h) || PEOPLE.some(x=>x.pwh===h || (x.pw && x.pw===a))){ toast('このパスワードは使えません。別のものにしてください'); return; }
       const p = E(S.loginName); if (!p) return; setPw(p.id, h); S.me=p.id; S.screen='app'; S.loginStep=0; S.loginName=null; S.view='my'; render(); toast('登録しました。次からはこのパスワードだけで入れます'); })(); return; }
   if (d.act==='lback'){ S.loginStep=0; render(); return; }
   if (d.act==='lnameback'){ S.loginStep=1; render(); return; }
@@ -2733,7 +2750,7 @@ function supaDb(sb){
       set: body => { const [coll, id] = splitP(path); return Promise.resolve(sb.from(T).upsert({path, coll, id, body, updated_at:new Date().toISOString()})).then(({error})=>{ if (error) throw mapErr(error); }); },
       delete: () => Promise.resolve(sb.from(T).delete().eq('path', path)).then(({error})=>{ if (error) throw mapErr(error); }),
       onSnapshot: (cb, fail) => { live(); push(docL, path, cb); if (fail) fails.push(fail);
-        Promise.resolve(sb.from(T).select('body').eq('path', path).maybeSingle()).then(({data, error})=>{ if (error){ if (fail) fail(); return; } if (data) cb({exists:true, data:()=>data.body}); }); }
+        Promise.resolve(sb.from(T).select('body').eq('path', path).maybeSingle()).then(({data, error})=>{ if (error){ if (fail) fail(); return; } cb(data ? {exists:true, data:()=>data.body} : {exists:false, data:()=>null}); }); }
     })
   };
 }
@@ -2741,6 +2758,8 @@ let DBX = null, liveWait = false, roWarned = false;
 const SESS_KEY = 'exec-task-board-session-v1', SESS_DAYS = 7; /* 最後に使ってから7日間はログインなしで入れる（ページの更新や開き直しでも続く） */
 let PEND_ME = null; /* 前回のログインは有効だが、人の一覧がまだ届いていない時の本人 id。届いたら入る */
 const SYNCED = new Map(), PSYNCED = new Map(), DSYNCED = new Map(), CHAIN = new Map();
+/* 共有の置き場から最初の中身が届くまでは、こちらから書き込まない（古いキャッシュで上書きしないように） */
+const READY = new Set();
 const jkey = o => JSON.stringify(o);
 /* 同じ置き場への書きこみは1つずつ順番に */
 function dbWrite(path, fn){
@@ -2751,15 +2770,15 @@ function dbWrite(path, fn){
   });
   CHAIN.set(path, p); p.then(()=>{ if (CHAIN.get(path)===p) CHAIN.delete(path); });
 }
-function pushTasks(){ if (!DBX) return;
+function pushTasks(){ if (!DBX || !READY.has('tasks')) return;
   const now = new Set();
   TASKS.forEach(t=>{ now.add(t.id); const j = jkey(t); if (SYNCED.get(t.id)===j) return; SYNCED.set(t.id, j); const body = JSON.parse(j); dbWrite('tasks/'+t.id, ()=>DBX.doc('tasks/'+t.id).set(body)); });
   [...SYNCED.keys()].forEach(id=>{ if (!now.has(id)){ SYNCED.delete(id); dbWrite('tasks/'+id, ()=>DBX.doc('tasks/'+id).delete()); } });
 }
-function pushProf(){ if (!DBX) return;
+function pushProf(){ if (!DBX || !READY.has('prof')) return;
   Object.keys(PROF).forEach(id=>{ const j = jkey(PROF[id]); if (PSYNCED.get(id)===j) return; PSYNCED.set(id, j); const body = JSON.parse(j); dbWrite('prof/'+id, ()=>DBX.doc('prof/'+id).set(body)); });
 }
-function pushDoc(path, body){ if (!DBX) return; const j = jkey(body); if (DSYNCED.get(path)===j) return; DSYNCED.set(path, j); const b = JSON.parse(j); dbWrite(path, ()=>DBX.doc(path).set(b)); }
+function pushDoc(path, body){ if (!DBX || !READY.has(path)) return; const j = jkey(body); if (DSYNCED.get(path)===j) return; DSYNCED.set(path, j); const b = JSON.parse(j); dbWrite(path, ()=>DBX.doc(path).set(b)); }
 /* 入力中や、下から出る画面を開いている時は、閉じてから描き直す */
 function liveRender(){
   if (S.screen!=='app' && S.screen!=='login') return; /* ログイン画面も、人の一覧が届いたら描き直す */
@@ -2770,9 +2789,11 @@ function liveRender(){
 function takeTasks(docs){
   const arr = docs.map(d=>JSON.parse(jkey(d.data()))).filter(t=>t && t.id).sort((a,b)=>(b.at||0)-(a.at||0));
   SYNCED.clear(); arr.forEach(t=>SYNCED.set(t.id, jkey(t)));
-  const same = arr.length===TASKS.length && arr.every(t=>{ const o = TASKS.find(x=>x.id===t.id); return o && jkey(o)===SYNCED.get(t.id); });
+  const fixed = reconcile(arr); /* 自分の直近のコメント・いいねが抜けていたら足し直す */
+  const same = !fixed && arr.length===TASKS.length && arr.every(t=>{ const o = TASKS.find(x=>x.id===t.id); return o && jkey(o)===SYNCED.get(t.id); });
   if (same) return;
   TASKS = arr; try { localStorage.setItem(KEY, jkey(TASKS)); } catch(e){}
+  if (fixed) pushTasks();
   liveRender();
 }
 function refetchTasks(){ DBX.collection('tasks').get().then(sn=>{ if (!sn.empty || !sn.metadata.fromCache) takeTasks(sn.docs); }).catch(()=>{}); }
@@ -2781,7 +2802,7 @@ function startSync(db){
   let warn = setTimeout(()=>{ warn = null; toast('共有データにつながりません。この端末の保存で表示しています'); }, 10000);
   const ok = () => { if (warn){ clearTimeout(warn); warn = null; } };
   const fail = () => { ok(); toast('共有データとの接続が切れました。もう一度開きなおしてください'); };
-  db.collection('tasks').onSnapshot(sn=>{ if (sn.empty && sn.metadata.fromCache) return; if (!sn.metadata.fromCache) ok(); takeTasks(sn.docs); }, fail);
+  db.collection('tasks').onSnapshot(sn=>{ READY.add('tasks'); if (sn.empty && sn.metadata.fromCache) return; if (!sn.metadata.fromCache) ok(); takeTasks(sn.docs); }, fail);
   db.collection('stories').onSnapshot(sn=>{ if (sn.empty && sn.metadata.fromCache) return;
     const all = sn.docs.map(d=>JSON.parse(jkey(d.data()))).filter(x=>x && x.id);
     all.filter(x=>Date.now()-x.at >= ST_LIFE).forEach(x=>dbWrite('stories/'+x.id, ()=>db.doc('stories/'+x.id).delete()));
@@ -2791,15 +2812,18 @@ function startSync(db){
     const all = sn.docs.map(d=>JSON.parse(jkey(d.data()))).filter(x=>x && x.id);
     all.filter(x=>Date.now()-x.at >= ST_LIFE).forEach(x=>dbWrite('storycm/'+x.id, ()=>db.doc('storycm/'+x.id).delete()));
     STCM = all.filter(x=>Date.now()-x.at < ST_LIFE); try { localStorage.setItem(SCKEY, jkey(STCM)); } catch(e){} if (svRefresh) svRefresh(); }, fail);
-  db.collection('prof').onSnapshot(sn=>{ let ch = false;
+  /* パスワード（ハッシュ）は人ごとに別の場所（pw/本人id）。だれかの登録がほかの人の登録を上書きしないように */
+  db.collection('pw').onSnapshot(sn=>{ READY.add('pw'); const m = {}; sn.docs.forEach(d=>{ const b = JSON.parse(jkey(d.data())); if (b && b.h) m[d.id] = b.h; }); PWH = m;
+    try { localStorage.setItem(PWKEY, jkey(PWH)); } catch(e){} PEOPLE.forEach(p=>{ p.reg = !!(PWH[p.id] || p.pwh); }); liveRender(); }, fail);
+  db.collection('prof').onSnapshot(sn=>{ READY.add('prof'); let ch = false;
     sn.docs.forEach(d=>{ const v = JSON.parse(jkey(d.data())), j = jkey(v); PSYNCED.set(d.id, j); if (jkey(PROF[d.id])!==j){ PROF[d.id] = v; ch = true; } });
     if (ch){ try { localStorage.setItem(PKEY, jkey(PROF)); } catch(e){} liveRender(); } }, fail);
-  const one = (path, lsKey, get, set) => db.doc(path).onSnapshot(d=>{ if (!d.exists) return; const v = get(JSON.parse(jkey(d.data()))); if (v==null) return; const j = jkey(v);
+  const one = (path, lsKey, get, set) => db.doc(path).onSnapshot(d=>{ READY.add(path); if (!d.exists) return; const v = get(JSON.parse(jkey(d.data()))); if (v==null) return; const j = jkey(v);
     DSYNCED.set(path, jkey(d.data())); if (j===jkey(set())) return; set(v); try { localStorage.setItem(lsKey, j); } catch(e){} liveRender(); }, fail);
   one('app/units', UKEY, b=>b.m, v=>v===undefined ? UMEM : (UMEM = v));
   one('app/block', BKEY, b=>b.list, v=>v===undefined ? BLOCK : (BLOCK = v));
   one('app/foot', FKEY, b=>b.m, v=>v===undefined ? FOOT : (FOOT = v));
-  db.doc('app/people').onSnapshot(d=>{ if (!d.exists) return; const b = JSON.parse(jkey(d.data())), list = Array.isArray(b.list) ? b.list : [], hide = Array.isArray(b.hide) ? b.hide : []; DSYNCED.set('app/people', jkey(d.data()));
+  db.doc('app/people').onSnapshot(d=>{ READY.add('app/people'); if (!d.exists) return; const b = JSON.parse(jkey(d.data())), list = Array.isArray(b.list) ? b.list : [], hide = Array.isArray(b.hide) ? b.hide : []; DSYNCED.set('app/people', jkey(d.data()));
     if (jkey(list)===jkey(ADDP) && jkey(hide)===jkey(HIDEP)){ if (PEND_ME){ sessResume(); render(); } return; } ADDP = list; HIDEP = hide; try { localStorage.setItem(NPKEY, jkey(ADDP)); localStorage.setItem(NHKEY, jkey(HIDEP)); } catch(e){} mergeAdded(ADDP); refreshExecs(); if (PEND_ME){ sessResume(); render(); return; } liveRender(); }, fail);
 }
 /* ログインをたもつ：最後に使ってから7日のあいだは、開くとそのまま入れる（ログアウトで消える） */
