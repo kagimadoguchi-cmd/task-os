@@ -1759,7 +1759,7 @@ function myHtml(){
     <div class="bio"><b>${esc(e.name)}${isExecP(e)?VF:''}</b><small>${esc(roleText(e))}<br>担当：${esc(e.area)}</small>
       ${pf.goal?`<p class="goal"><em>目標</em>${esc(pf.goal)}</p>`:''}${pf.vision?`<p class="goal"><em>ありたい姿</em>${esc(pf.vision)}</p>`:''}
       ${!pf.goal && !pf.vision ? '<p class="goal" style="color:var(--ink3)">「プロフィールを編集」から、目標やありたい姿を書けます。</p>' : ''}</div>
-    <div class="mybtns"><button class="pb" data-act="pfedit">プロフィールを編集</button>${isExecP(e)?`<button class="pb" data-act="foot">足あと<small class="num">${(FOOT[e.id]||[]).length}</small></button>`:''}</div>
+    <div class="mybtns"><button class="pb" data-act="pfedit">プロフィールを編集</button>${isExecP(e)?`<button class="pb" data-act="foot">足あと<small class="num">${(FOOT[e.id]||[]).length}</small></button>`:''}${e.biz==='sys'?'<button class="pb" data-act="logout">ログアウト</button>':''}</div>
     ${pageTabs(e,true)}`;
 }
 /* プロフィールの編集：写真（ずらす・大きさを変えて丸く切り取る）・目標・ありたい姿。名前は変えられない */
@@ -2297,7 +2297,7 @@ document.addEventListener('click', e=>{
   if (d.act==='lnameback'){ S.loginStep=1; render(); return; }
   if (d.dbgas){ S.me=d.dbgas; S.screen='app'; S.loginStep=0; S.view='home'; render(); window.scrollTo(0,0); toast(`デバッグ用に${E(S.me).name}さん（${roleText(E(S.me))}）で入りました`); return; }
   if (d.act==='back'){ goBack(); return; }
-  if (d.act==='logout'){ sessClear(); appBadge(0); S.scope = null; HIST.length = 0; lastView = null; closeSheet(); S.me=null; S.screen='login'; S.loginStep=0; render(); window.scrollTo(0,0); return; }
+  if (d.act==='logout'){ if ((E(S.me)||{}).biz!=='sys') return; sessClear(); appBadge(0); S.scope = null; HIST.length = 0; lastView = null; closeSheet(); S.me=null; S.screen='login'; S.loginStep=0; render(); window.scrollTo(0,0); return; }
   if (d.role){ roleSheet(d.role); return; }
   if (d.pman){ const p = E(d.pman); sheet(`${head(esc(p.name)+'さん')}<p style="margin:0;color:var(--ink3)">${esc(roleText(p))}・${p.reg?'登録済み':'未登録'}${isBlocked(p)?'・ログイン不可':''}</p>
       <div class="btns"><button class="btn ghost" data-role="${p.id}">役職を変える</button>${p.reg?`<button class="btn ghost" data-reset="${p.id}">パスワードをリセット</button>`:''}</div>
