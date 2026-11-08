@@ -30,20 +30,20 @@ self.addEventListener('push', e => {
     badge: 'icon-180.png',
     tag: d.tag || undefined,
     renotify: !!d.tag,
-    data: { go: d.go || 'act' }
+    data: { go: d.go || 'act', tag: d.tag || '' }
   };
   e.waitUntil(self.registration.showNotification(title, opt));
 });
 
-/* 通知を押した：開いている画面があればそこを前に出してお知らせへ。なければアプリを開く */
+/* 通知を押した：開いている画面があればそこを前に出して、通知の中身（tag）へ。なければアプリを開く */
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const go = (e.notification.data && e.notification.data.go) || 'act';
+  const go = (e.notification.data && e.notification.data.go) || 'act', tag = (e.notification.data && e.notification.data.tag) || '';
   e.waitUntil((async () => {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of list) {
-      if ('focus' in c) { await c.focus(); c.postMessage({ type: 'go', go }); return; }
+      if ('focus' in c) { await c.focus(); c.postMessage({ type: 'go', go, tag }); return; }
     }
-    await self.clients.openWindow('./?go=' + encodeURIComponent(go));
+    await self.clients.openWindow('./?go=' + encodeURIComponent(go) + (tag ? '&tag=' + encodeURIComponent(tag) : ''));
   })());
 });

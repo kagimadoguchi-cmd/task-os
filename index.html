@@ -1523,7 +1523,7 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(TASKS)); } c
    自分の分が入っていない版が共有の置き場から届いても、足し直してもう一度保存する（消えないように） */
 const RECENT = [];
 const myNm = () => (E(S.me)||{}).name || '', tNm = t => { const x = (t && t.title) || ''; return x.length > 20 ? x.slice(0,20) + '…' : x; }, cut = (x, n) => x.length > n ? x.slice(0, n) + '…' : x;
-const addCm = (t, text) => { const c = {by:S.me, at:Date.now(), text}; t.comments = t.comments || []; t.comments.push(c); RECENT.push({k:'cm', t:t.id, c, at:Date.now()});
+const addCm = (t, text, to) => { const c = {by:S.me, at:Date.now(), text}; if (to) c.to = to; t.comments = t.comments || []; t.comments.push(c); RECENT.push({k:'cm', t:t.id, c, at:Date.now()});
   pushTo([t.owner, t.taker], `${myNm()}さんが「${tNm(t)}」にコメント：${cut(text, 60)}`, 'cm-'+t.id); };
 const noteLike = (tid, on, lat) => { RECENT.push({k:'like', t:tid, on, lat, at:Date.now()}); };
 const reconcile = arr => { const lim = Date.now() - 2*6e4; let ch = false;
@@ -1864,13 +1864,19 @@ const ACT_DAYS = 30, AKEY = 'exec-task-board-actseen-v2';
 function actEvents(){ const out = [], lim = Date.now() - ACT_DAYS*864e5;
   TASKS.filter(canSee).forEach(t=>{
     Object.entries(t.likeAt||{}).forEach(([by,at])=>out.push({k:'like', by, at, t}));
-    (t.comments||[]).forEach(c=>out.push({k:'cmt', by:c.by, at:c.at, text:c.text, t}));
+    (t.comments||[]).forEach(c=>{ out.push({k:'cmt', by:c.by, at:c.at, text:c.text, t, to:c.to}); if (c.to) out.push({k:'to', by:c.by, at:c.at, t, to:c.to}); });
     if (t.taker && t.takenAt && !isPendingReq(t)) out.push({k:'take', by:t.taker, at:t.takenAt, t});
-    if (t.status==='done' && t.doneAt) out.push({k:'done', by:t.taker || t.owner, at:t.doneAt, t}); });
+    if (t.status==='done' && t.doneAt) out.push({k:'done', by:t.taker || t.owner, at:t.doneAt, t});
+    if (t.taker && t.req && t.owner!==t.taker && !apWait(t)) out.push({k:'req', by:t.owner, at:t.reqAt || t.at, t});
+    if (t.appr) out.push({k:'apq', by:t.owner, at:t.apprReqAt || t.at, t});
+    if (t.apprBy && t.apprAt && (t.appr==='ok' || t.appr==='ng')) out.push({k:'ap'+t.appr, by:t.apprBy, at:t.apprAt, text:t.apprNote || '', t}); });
   stLive().forEach(x=>{ if (!seeP(E(x.by))) return; out.push({k:'story', by:x.by, at:x.at, sid:x.id, owner:x.by});
-    stCmOf(x.id).forEach(c=>out.push({k:'scmt', by:c.by, at:c.at, text:c.text, sid:x.id, owner:x.by})); });
+    stCmOf(x.id).forEach(c=>out.push({k:'scmt', by:c.by, at:c.at, text:c.text, sid:x.id, owner:x.by}));
+    stvOf(x.id).filter(v=>v.like && v.by!==x.by).forEach(v=>out.push({k:'slike', by:v.by, at:v.likeAt || v.at, sid:x.id, owner:x.by})); });
   return out.filter(e=>e.at > lim && E(e.by) && e.by!==S.me).sort((a,b)=>b.at-a.at); }
-const actMine = e => e.t ? (e.t.owner===S.me || e.t.taker===S.me) && e.k!=='take' || (e.k==='take' && e.t.owner===S.me) : e.k==='scmt' && e.owner===S.me;
+const actMine = e => { if (e.k==='req') return e.t.taker===S.me; if (e.k==='apq') return meIsExec() && e.t.owner!==S.me;
+  if (e.k==='apok' || e.k==='apng' || e.k==='take') return e.t.owner===S.me; if (e.k==='to') return e.to===S.me;
+  if (e.t) return (e.t.owner===S.me || e.t.taker===S.me) && e.to!==S.me; return (e.k==='scmt' || e.k==='slike') && e.owner===S.me; };
 const actSeen = () => { try { return (JSON.parse(localStorage.getItem(AKEY)||'{}'))[S.me] || 0; } catch(e){ return 0; } };
 const actMark = () => { try { const o = JSON.parse(localStorage.getItem(AKEY)||'{}'); o[S.me] = Date.now(); localStorage.setItem(AKEY, JSON.stringify(o)); } catch(e){} };
 /* 通知のオン・オフ（人ごと・この端末に保存）。オフの時は❤の赤い点を出さない */
@@ -1881,7 +1887,8 @@ const actNew = () => { if (!notifOn()) return 0; const t0 = actSeen(); return ac
 /* ❤の右上に未読の数（赤い丸に白い数字）。ホーム画面に追加したアプリのアイコンにも同じ数を出す（対応している端末だけ） */
 let appBadgeN = -1, heartWob = 0;
 /* ホーム画面のアイコンの赤い数字は、アプリを開いたら消す（❤の中の未読は、読むまで残る）。閉じている間に届いた通知で、また増える */
-const badgeClear = () => { if (document.visibilityState!=='visible') return; appBadgeN = -1; appBadge(0); };
+const badgeClear = () => { if (document.visibilityState!=='visible') return; appBadgeN = -1; appBadge(0);
+  try { navigator.serviceWorker.getRegistration().then(r=>r && r.getNotifications ? r.getNotifications() : []).then(ns=>(ns||[]).forEach(n=>n.close())).catch(()=>{}); } catch(e){} };
 document.addEventListener('visibilitychange', badgeClear); window.addEventListener('pageshow', badgeClear); window.addEventListener('focus', badgeClear);
 const appBadge = n => { if (n===appBadgeN) return; appBadgeN = n; try { if (n > 0 && navigator.setAppBadge) navigator.setAppBadge(n).catch(()=>{}); else if (navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); } catch(e){}
   /* 通知を受け取る係（sw.js）にも本当の未読の数を教える。アプリを閉じている間は、そこから通知のたびに 1 ずつ増える */
@@ -1903,7 +1910,7 @@ function actHtml(){
   const igAgo = at => { const m = Math.floor((Date.now()-at)/6e4); return m<1?'今':m<60?m+'分':m<1440?Math.floor(m/60)+'時間':m<10080?Math.floor(m/1440)+'日':Math.floor(m/10080)+'週間'; };
   /* いいねは「同じタスク・同じ区切り」でまとめる */
   const rows = [];
-  list.forEach(e=>{ if (e.k==='like'){ const g = rows.find(x=>x.k==='like' && x.t===e.t && x.sec===sect(e.at)); if (g){ g.by.push(e.by); return; } rows.push({...e, by:[e.by], sec:sect(e.at)}); } else rows.push({...e, by:[e.by], sec:sect(e.at)}); });
+  list.forEach(e=>{ if (e.k==='like' || e.k==='slike'){ const g = rows.find(x=>x.k===e.k && (e.t ? x.t===e.t : x.sid===e.sid) && x.sec===sect(e.at)); if (g){ g.by.push(e.by); return; } rows.push({...e, by:[e.by], sec:sect(e.at)}); } else rows.push({...e, by:[e.by], sec:sect(e.at)}); });
   /* 履歴は新しいものから50件まで */
   const ACT_MAX = 50; rows.splice(ACT_MAX);
   const nm = id => `<b>${esc(EP(id).name)}</b>`;
@@ -1912,11 +1919,17 @@ function actHtml(){
     : e.k==='cmt' ? `${who(e.by)}がコメントしました：${esc(e.text)}`
     : e.k==='take' ? `${who(e.by)}があなたのタスクに着手しました。`
     : e.k==='done' ? `${who(e.by)}があなたのタスクを完了しました。`
+    : e.k==='req' ? `${who(e.by)}から${e.t.secret ? 'シークレットの' : ''}依頼が届きました：「${esc(tNm(e.t))}」`
+    : e.k==='apq' ? `${who(e.by)}（部長）からタスクの確認のお願いです：「${esc(tNm(e.t))}」`
+    : e.k==='apok' ? `${who(e.by)}があなたのタスクを許可しました。`
+    : e.k==='apng' ? `${who(e.by)}があなたのタスクを差し戻しました${e.text ? '：' + esc(e.text) : '。'}`
+    : e.k==='to' ? `${who(e.by)}から「こちらも見ておいてください」と届きました。`
+    : e.k==='slike' ? `${who(e.by)}があなたのストーリーにいいねしました。`
     : `${who(e.by)}があなたのストーリーにコメントしました：${esc(e.text)}`;
   const avs = ids => ids.length > 1 ? `<span class="act-avs">${av(E(ids[1]),'s32')}${av(E(ids[0]),'s32')}</span>` : av(E(ids[0]),'s44');
   const thumb = e => { if (e.t){ const st = STATUS[stOf(e.t)]; return `<span class="act-th" style="--sc:${st.c};--sbg:${st.bg}"><b>${esc(e.t.title.slice(0,8))}</b></span>`; }
     const x = STORIES.find(y=>y.id===e.sid); return x && x.img ? `<span class="act-th img"><img src="${x.img}" alt=""></span>` : `<span class="act-th st"><b>${esc(((x||{}).txt||'').slice(0,8))}</b></span>`; };
-  const row = e => { const go = e.t ? `data-open="${e.t.id}"` : stOfP(e.owner).length ? `data-sv="${e.owner}"` : '';
+  const row = e => { const go = e.k==='apq' && e.t.appr==='pending' ? 'data-view="home"' : e.k==='req' && e.t.req==='pending' ? 'data-mytab="req"' : e.t ? `data-open="${e.t.id}"` : stOfP(e.owner).length ? `data-sv="${e.owner}"` : '';
     return `<button class="act-row" ${go}>${avs(e.by)}<span class="act-t">${txt(e)}<small>${igAgo(e.at)}</small></span>${thumb(e)}</button>`; };
   const on = notifOn();
   return `<div class="mh act-mh"><button class="back" data-act="back" aria-label="もどる">${ic('back')}</button><b>お知らせ</b><span class="sp"></span><span class="nt-l">${on?'通知オン':'通知オフ'}</span><button class="nt-bell ${on?'on':'off'}" role="switch" aria-checked="${on}" aria-label="通知を${on?'オフにする':'オンにする'}" data-act="notif">${ic(on?'bell':'bell-off')}</button></div>
@@ -2192,7 +2205,7 @@ function render(){
   document.body.classList.toggle('login-scroll', S.screen==='login' && S.loginStep!==0);
   if (S.screen==='login'){ document.getElementById('app').innerHTML = loginHtml(); window.scrollTo(0,0); return; }
   if (!canUse(E(S.me))){ sessClear(); S.screen='login'; S.loginStep=0; render(); return; }
-  if (PEND_GO==='act'){ PEND_GO = null; S.view = 'act'; }
+  if (PEND_GO){ PEND_GO = null; const tg = PEND_TAG; PEND_TAG = ''; if (tg) setTimeout(()=>goNow(tg), 0); else S.view = 'act'; }
   sessKeep();
   const v = S.view==='prof' ? 'execs' : S.view==='ptl' ? (S.tlp===S.me ? 'my' : 'execs') : S.view;
   if (S.view==='admin' && !E(S.me).admin) S.view='home';
@@ -2442,7 +2455,7 @@ document.addEventListener('click', e=>{
   if (d.undo){ const t = find(d.undo); t.status='doing'; if (t.prog===100) t.prog=90; save(); render(); toast('未完了に戻しました'); return; }
   if (d.apok){ const t = find(d.apok); if (!t || !meIsExec()) return; t.appr = 'ok'; t.apprBy = S.me; t.apprAt = Date.now(); t.apprNote = '';
     pushTo([t.owner], `${myNm()}さんが「${tNm(t)}」を許可しました。選んだ範囲の人に表示されます`, 'apok-'+t.id);
-    if (t.secret && t.taker && t.req==='pending') pushTo([t.taker], `${EP(t.owner).name}さんからシークレットの依頼：「${tNm(t)}」`, 'sec-'+t.id);
+    if (t.secret && t.taker && t.req==='pending'){ t.reqAt = Date.now(); } if (t.secret && t.taker && t.req==='pending') pushTo([t.taker], `${EP(t.owner).name}さんからシークレットの依頼：「${tNm(t)}」`, 'sec-'+t.id);
     save(); closeSheet(); render(); toast('許可しました。選んだ範囲の人に表示されます'); return; }
   if (d.apng){ const t = find(d.apng); if (!t || !meIsExec()) return;
     sheet(`${head('差し戻す')}<p style="margin:0;font-size:14px">「${esc(t.title)}」を${esc(EP(t.owner).name)}さんに差し戻します。</p>
@@ -2456,7 +2469,7 @@ document.addEventListener('click', e=>{
     if (blockPII(['q-title','q-desc'])) return;
     const due = document.getElementById('q-due').value || iso(dayAdd(7));
     TASKS.unshift({id:'t'+Date.now(), owner:S.me, taker:d.reqsend, req:'pending', title, desc:document.getElementById('q-desc').value.trim(), note:'', due, status:'todo', prog:0,
-      prio:document.querySelector('input[name="q-pr"]:checked').value, likes:0, likedBy:[], comments:[], at:Date.now(), secret:!!(document.getElementById('q-sec')||{}).checked});
+      prio:document.querySelector('input[name="q-pr"]:checked').value, likes:0, likedBy:[], comments:[], at:Date.now(), reqAt:Date.now(), secret:!!(document.getElementById('q-sec')||{}).checked});
     pushTo([d.reqsend], `${myNm()}さんから${TASKS[0].secret ? 'シークレットの' : ''}依頼：「${cut(title, 20)}」`, 'req-'+TASKS[0].id);
     save(); closeSheet(); render(); toast(`${E(d.reqsend).name}さんに${TASKS[0].secret ? 'シークレットで' : ''}依頼しました。マイページの「依頼」に届きます`); return; }
   if (d.reqok){ const t = find(d.reqok); t.req='ok'; t.takenAt=Date.now(); t.status='doing'; markStart(t); save(); render(); toast('依頼に着手しました。ホームと「進行中」に入りました'); return; }
@@ -2465,7 +2478,7 @@ document.addEventListener('click', e=>{
   if (d.edit){ if (!canEdit(find(d.edit))){ toast('編集できるのは、作った人だけです'); return; } editSheet(d.edit); return; }
   if (d.cmt){ cmtSheet(d.cmt); return; }
   if (d.share){ const t = find(d.share); sheet(`${head('ほかの役員に送る')}<div class="lst">${EXECS.filter(x=>x.id!==S.me).map(x=>`<button class="row" data-sendto="${x.id}" data-task="${t.id}">${av(x,'s40')}<span class="t"><b>${esc(x.name)}</b><small>${esc(x.title)}</small></span><span class="pb">送る</span></button>`).join('')}</div>`); return; }
-  if (d.sendto){ const t = find(d.task); addCm(t, `${E(d.sendto).name}さん、こちらも見ておいてください。`); pushTo([d.sendto], `${myNm()}さんから：「${tNm(t)}」を見ておいてください`, 'to-'+t.id); save(); closeSheet(); render(); toast(`${E(d.sendto).name}さんに送りました`); return; }
+  if (d.sendto){ const t = find(d.task); addCm(t, `${E(d.sendto).name}さん、こちらも見ておいてください。`, d.sendto); pushTo([d.sendto], `${myNm()}さんから：「${tNm(t)}」を見ておいてください`, 'to-'+t.id); save(); closeSheet(); render(); toast(`${E(d.sendto).name}さんに送りました`); return; }
   if (d.menu){ const t = find(d.menu); sheet(`<div class="menu"><button data-detail="${t.id}">内容を見る</button>${canEdit(t)?`<button data-edit="${t.id}">編集する</button>`:''}${canEdit(t)?`<button class="red" data-askdel="${t.id}">削除する</button>`:''}<button data-act="close">キャンセル</button></div>`); return; }
   if (d.askdel){ sheet(`${head('このタスクを削除しますか？')}<p style="margin:0;color:var(--ink3)">削除すると元に戻せません。</p><div class="btns"><button class="btn ghost" data-act="close">やめる</button><button class="btn red" data-del="${d.askdel}">削除する</button></div>`); return; }
   if (d.del){ TASKS = TASKS.filter(x=>x.id!==d.del); save(); closeSheet(); render(); toast('削除しました'); return; }
@@ -2489,12 +2502,12 @@ document.addEventListener('click', e=>{
     if (v.status==='done') v.prog = 100;
     if (v.status==='todo') v.start = null; else if (!(d.savetask && find(d.savetask).start)) v.start = iso(TODAY);
     /* 部長が作る時は、役員の確認待ちにする（差し戻されたものを直した時も、もう一度確認待ちに） */
-    const old0 = d.savetask ? find(d.savetask) : null;
-    if (needAppr() && (!old0 || apWait(old0))){ v.appr = 'pending'; v.apprNote = ''; pushTo(execIds(), `${myNm()}さん（部長）からタスクの確認：「${cut(title, 20)}」`, 'ap-'+(d.savetask||'new')); }
+    const old0 = d.savetask ? find(d.savetask) : null, nid = d.savetask || 't'+Date.now();
+    if (needAppr() && (!old0 || apWait(old0))){ v.appr = 'pending'; v.apprNote = ''; v.apprReqAt = Date.now(); pushTo(execIds(), `${myNm()}さん（部長）からタスクの確認：「${cut(title, 20)}」`, 'ap-'+nid); }
     /* シークレット：担当者に依頼として届く（受けるまでは依頼のまま）。確認待ちの間は担当者に知らせない */
-    if (v.secret){ const old = d.savetask ? find(d.savetask) : null; if (!old || old.taker!==tkv){ v.taker = tkv; v.req = 'pending'; v.status = 'todo'; v.start = null; if (!v.appr) pushTo([tkv], `${myNm()}さんからシークレットの依頼：「${cut(title, 20)}」`, 'sec-'+(d.savetask||'new')); } }
+    if (v.secret){ const old = d.savetask ? find(d.savetask) : null; if (!old || old.taker!==tkv){ v.taker = tkv; v.req = 'pending'; v.reqAt = Date.now(); v.status = 'todo'; v.start = null; if (!v.appr) pushTo([tkv], `${myNm()}さんからシークレットの依頼：「${cut(title, 20)}」`, 'sec-'+nid); } }
     if (d.savetask){ Object.assign(find(d.savetask), v); toast('保存しました'); }
-    else { TASKS.unshift({id:'t'+Date.now(), likes:0, liked:false, saved:false, comments:[], at:Date.now(), ...v}); S.view='home'; S.filter='all'; S.who=null; toast(v.appr ? '役員に確認をお願いしました。許可されると、選んだ範囲の人に表示されます' : v.secret ? `シークレットで登録しました。${E(tkv).name}さんの「依頼」に届きます` : 'タスクを登録しました'); }
+    else { TASKS.unshift({id:nid, likes:0, liked:false, saved:false, comments:[], at:Date.now(), ...v}); S.view='home'; S.filter='all'; S.who=null; toast(v.appr ? '役員に確認をお願いしました。許可されると、選んだ範囲の人に表示されます' : v.secret ? `シークレットで登録しました。${E(tkv).name}さんの「依頼」に届きます` : 'タスクを登録しました'); }
     save(); closeSheet(); render(); window.scrollTo(0,0); return; }
   if (d.mon){ const b = S.month ? new Date(S.month) : new Date(TODAY.getFullYear(), TODAY.getMonth(), 1); b.setMonth(b.getMonth()+ +d.mon); S.month = +b; S.pick=null; render(); return; }
   if (d.act==='squad'){ const all = PEOPLE.filter(x=>x.id!==S.me && canUse(x));
@@ -3144,7 +3157,7 @@ function supaDb(sb){
 }
 let DBX = null, liveWait = false, roWarned = false;
 const SESS_KEY = 'exec-task-board-session-v1', SESS_DAYS = 7; /* 最後に使ってから7日間はログインなしで入れる（ページの更新や開き直しでも続く） */
-let PEND_GO = null; /* 通知を押して開いた時の行き先（ログインが届くのを待つ間） */
+let PEND_GO = null, PEND_TAG = ''; /* 通知を押して開いた時の行き先（ログインが届くのを待つ間） */
 let PEND_ME = null; /* 前回のログインは有効だが、人の一覧がまだ届いていない時の本人 id。届いたら入る */
 const SYNCED = new Map(), PSYNCED = new Map(), DSYNCED = new Map(), CHAIN = new Map();
 /* 共有の置き場から最初の中身が届くまでは、こちらから書き込まない（古いキャッシュで上書きしないように） */
@@ -3228,7 +3241,7 @@ function sessClear(){ try { localStorage.removeItem(SESS_KEY); } catch(e){} }
   if (canUse(E(o.me))){ S.me = o.me; S.screen = 'app'; S.view = 'home'; }
   else { PEND_ME = o.me; setTimeout(()=>{ if (PEND_ME){ PEND_ME = null; if (S.screen==='login') render(); } }, 8000); } } catch(e){} })();
 /* 人の一覧が届いた時：前回のログインが残っていれば、そのまま入る */
-function sessResume(){ if (!PEND_ME) return; const id = PEND_ME; PEND_ME = null; if (canUse(E(id))){ S.me = id; S.screen = 'app'; S.view = PEND_GO==='act' ? 'act' : 'home'; PEND_GO = null; } else sessClear(); }
+function sessResume(){ if (!PEND_ME) return; const id = PEND_ME; PEND_ME = null; if (canUse(E(id))){ S.me = id; S.screen = 'app'; S.view = PEND_GO ? 'act' : 'home'; } else sessClear(); }
 /* 共有の置き場につなぐ。claude.ai のアーティファクトの中ではアーティファクトの置き場、それ以外（GitHub などに置いた時）は Supabase。どちらもなければこの端末の保存だけ */
 try {
   if (window.claude && window.claude.use) window.claude.use('db').then(db=>{ if (db) startSync(db); else document.body.classList.add('guest'); }).catch(()=>{});
@@ -3279,10 +3292,19 @@ if (pushCan()) navigator.serviceWorker.register('sw.js').then(async reg=>{ swReg
   pushSubd = !!sub && Notification.permission==='granted';
   if (pushSubd){ const again = () => { if (DBX && S.me) pushSave(sub); else setTimeout(again, 1500); }; again(); }
   if (S.view==='act') render(); }).catch(()=>{});
-/* 通知を押して開いた時は、お知らせの画面へ */
-const pushGo = go => { if (S.screen!=='app'){ PEND_GO = go; return; } if (go==='act'){ S.view = 'act'; render(); window.scrollTo(0,0); } };
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e=>{ if (e.data && e.data.type==='go') pushGo(e.data.go); });
-try { const q = new URLSearchParams(location.search); if (q.get('go')){ const go = q.get('go'); history.replaceState(null, '', location.pathname); if (S.screen==='app'){ if (go==='act') S.view = 'act'; } else PEND_GO = go; } } catch(e){}
+/* 通知を押して開いた時は、その中身へ（通知の印 tag で決める）。見つからない時は、お知らせの画面へ
+   cm・like・take・done・to・apok・apng＝そのタスク／req・sec＝マイページの「依頼」／ap＝ホームの確認待ち／scm・slk＝自分のストーリー */
+const goTag = tag => { const m = /^([a-z]+)-(.+)$/.exec(tag || ''); if (!m) return false; const k = m[1], id = m[2], t = TASKS.find(x=>x.id===id);
+  if (k==='scm' || k==='slk'){ const x = stLive().find(y=>y.id===id); if (!x || !stOfP(x.by).length) return false; closeSheet(); S.view = 'home'; render(); window.scrollTo(0,0); stOpen(x.by); return true; }
+  if (k==='ap'){ if (!meIsExec()) return false; closeSheet(); S.view = 'home'; render(); window.scrollTo(0,0); return true; }
+  if ((k==='req' || k==='sec') && (id==='new' || (t && t.req==='pending'))){ if (id!=='new' && !canSee(t)) return false; closeSheet(); S.view = 'my'; S.myTab = 'req'; render(); window.scrollTo(0,0); return true; }
+  if (!t || !canSee(t)) return false; closeSheet(); S.lp = null; S.lf = 'all'; S.view = 'list'; render(); window.scrollTo(0,0); detailSheet(t.id); return true; };
+/* まだ中身が届いていない時は、お知らせを出して、少し待ってからもう一度さがす */
+const goNow = tag => { if (goTag(tag)) return; closeSheet(); S.view = 'act'; render(); window.scrollTo(0,0); if (!tag) return;
+  let n = 0; const again = () => { if (++n > 8 || S.view!=='act' || document.getElementById('scrim') || document.querySelector('.sv,.sc')) return; if (!goTag(tag)) setTimeout(again, 800); }; setTimeout(again, 800); };
+const pushGo = (go, tag) => { if (S.screen!=='app'){ PEND_GO = go || 'act'; PEND_TAG = tag || ''; return; } goNow(tag || ''); };
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e=>{ if (e.data && e.data.type==='go') pushGo(e.data.go, e.data.tag); });
+try { const q = new URLSearchParams(location.search); if (q.get('go')){ PEND_GO = q.get('go'); PEND_TAG = q.get('tag') || ''; history.replaceState(null, '', location.pathname); } } catch(e){}
 /* 相手の端末に通知を送る（自分には送らない）。届かなくてもアプリの動きには影響しない */
 const pushTo = (ids, body, tag) => { if (window.claude || !SUPA.url || !SUPA.key || !S.me) return; const to = [...new Set((ids||[]).filter(x=>x && x!==S.me))]; if (!to.length) return;
   try { fetch(SUPA.url + '/functions/v1/push', {method:'POST', keepalive:true, headers:{'Content-Type':'application/json', apikey:SUPA.key, Authorization:'Bearer ' + SUPA.key},
