@@ -403,6 +403,8 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .pu-b:active{transform:scale(.94)}
 .pu-b.sub{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .pu-b:disabled{opacity:.5}
+.nt-body{display:flex;flex-direction:column;gap:10px}
+.nt-body .pu,.nt-body .nt-off{margin:0}
 .act-list{display:flex;flex-direction:column;padding:4px 0 16px}
 .act-h{font-size:15px;font-weight:800;margin:14px 16px 4px}
 .act-row{display:flex;align-items:center;gap:12px;border:0;background:none;padding:9px 16px;text-align:left;color:var(--ink);width:100%}
@@ -1916,6 +1918,12 @@ const pushCard = () => { const ps = pushState();
   if (ps==='home') return `<div class="pu">${ic('bell')}<span><b>スマホに通知を受け取るには</b><small>Safari の共有ボタン →「ホーム画面に追加」。追加したアプリから開いて、ここの「受け取る」を押してください</small></span></div>`;
   if (ps==='denied') return `<div class="pu">${ic('bell-off')}<span><b>通知がブロックされています</b><small>端末の「設定」→「通知」→ タスクOS で、通知を許可してください</small></span></div>`;
   return `<div class="pu">${ic('bell')}<span><b>スマホに通知を受け取る</b><small>アプリを閉じていても、いいねやコメントが届きます</small></span><button class="pu-b" data-act="pushon"${pushBusy ? ' disabled' : ''}>受け取る</button></div>`; };
+/* 通知の設定（右上のベルを押すと出る）：スマホへの通知（受け取る・止める）と、♡ の赤い数字 */
+const ntBody = () => { const on = notifOn();
+  return `${pushCard() || '<p class="nt-off">この端末・この開き方では、スマホへの通知は使えません。</p>'}
+    <div class="pu"><span><b>♡ に赤い数字を出す</b><small>${on ? '新しいお知らせがあると、右上の ♡ に数字が出ます' : 'いまは出していません。お知らせは、開けばいつでも見られます'}</small></span><button class="pu-b ${on ? 'sub' : ''}" data-act="notif" role="switch" aria-checked="${on}">${on ? 'オフにする' : 'オンにする'}</button></div>`; };
+const ntSheet = () => sheet(`${head('通知の設定')}<div class="nt-body" id="nt-body">${ntBody()}</div>`);
+const ntRefresh = () => { const b = document.getElementById('nt-body'); if (b) b.innerHTML = ntBody(); };
 function actHtml(){
   /* インスタのお知らせと同じ形：短い文＋時間、右に投稿の小さな四角。同じタスクへのいいねはまとめる */
   const t0 = S.actSeen0 || 0, list = actEvents().filter(actMine);
@@ -1946,8 +1954,7 @@ function actHtml(){
   const row = e => { const go = e.k==='apq' && e.t.appr==='pending' ? 'data-view="home"' : e.k==='req' && e.t.req==='pending' ? 'data-mytab="req"' : e.t ? `data-open="${e.t.id}"` : stOfP(e.owner).length ? `data-sv="${e.owner}"` : '';
     return `<button class="act-row" ${go}>${avs(e.by)}<span class="act-t">${txt(e)}<small>${igAgo(e.at)}</small></span>${thumb(e)}</button>`; };
   const on = notifOn();
-  return `<div class="mh act-mh"><button class="back" data-act="back" aria-label="もどる">${ic('back')}</button><b>お知らせ</b><span class="sp"></span><span class="nt-l">${on?'通知オン':'通知オフ'}</span><button class="nt-bell ${on?'on':'off'}" role="switch" aria-checked="${on}" aria-label="通知を${on?'オフにする':'オンにする'}" data-act="notif">${ic(on?'bell':'bell-off')}</button></div>
-    ${pushCard()}
+  return `<div class="mh act-mh"><button class="back" data-act="back" aria-label="もどる">${ic('back')}</button><b>お知らせ</b><span class="sp"></span><span class="nt-l">${on?'通知オン':'通知オフ'}</span><button class="nt-bell ${on?'on':'off'}" aria-label="通知の設定" data-act="ntset">${ic(on?'bell':'bell-off')}</button></div>
     ${on ? '' : '<p class="nt-off">通知はオフです。新しいお知らせがあっても、右上の❤に赤い点は出ません。この画面を開けば、いつでも見られます。</p>'}
     <div class="act-list">${['今日','今週','今月'].map((h,k)=>{ const g = rows.filter(e=>e.sec===k); return g.length ? `<h3 class="act-h">${h}</h3>${g.map(row).join('')}` : ''; }).join('') || '<div class="act-empty">'+ic('heart')+'<b>あなたへのお知らせ</b><small>だれかがあなたのタスクにいいねやコメントをすると、ここに出ます</small></div>'}</div>`;
 }
@@ -2128,7 +2135,7 @@ const PEEK_VIEWS = {home:()=>homeHtml(), search:()=>searchHtml(), cal:()=>calHtm
 function peekHtml(p){
   const keep = {view:S.view, prof:S.prof, who:S.who, filter:S.filter, myTab:S.myTab, pfTab:S.pfTab, calv:S.calv, tlp:S.tlp, lp:S.lp, lf:S.lf, coi:S.coi};
   Object.assign(S, {view:p.view, prof:p.prof, who:p.who, filter:p.filter, myTab:p.myTab, pfTab:p.pfTab, calv:p.calv, tlp:p.tlp, lp:p.lp, lf:p.lf, coi:p.coi});
-  let html = ''; try { html = (PEEK_VIEWS[p.view]||PEEK_VIEWS.home)(); } catch(e){}
+  let html = ''; try { html = withMask(PEEK_VIEWS[p.view]||PEEK_VIEWS.home); } catch(e){}
   Object.assign(S, keep);
   return `<div class="col" style="transform:translateY(${-(p.y||0)}px)"><header class="top gut ttl-top"><span class="tt-sd"></span><span class="ttl"><span class="tt-k">タスク</span><span class="lr">O</span><span class="lb">S</span></span><span class="tt-sd"></span></header>${html}</div>`;
 }
@@ -2214,7 +2221,15 @@ document.addEventListener('pointermove', e=>{ if (avLp && Math.hypot(e.clientX -
 /* 長押しのあとの「押した」（指をはなした時）はストーリーを開かない。大きくした顔も閉じない（もう一度タップで閉じる） */
 document.addEventListener('click', e=>{ if (avEat){ avEat = false; if (e.target.closest('.avr-btn,.avz')){ e.stopPropagation(); e.preventDefault(); } } }, true);
 document.addEventListener('contextmenu', e=>{ if (e.target.closest('.avr-btn')) e.preventDefault(); });
-function render(){
+/* スーパー管理者（開発用のアカウント）は、シークレット・役員のみのタスクを「あることだけ」わかる形で見る。
+   タスク名・内容・いまの状況・差し戻しの理由・コメントは伏字（●）にして、操作もできない。描く間だけ伏字のコピーを使う */
+const maskMe = () => (E(S.me)||{}).role==='super';
+const isMasked = t => !!t && maskMe() && !!(t.secret || t.execOnly);
+const MASK = '●●●●●';
+const maskT = t => isMasked(t) ? {...t, title:MASK, desc:'', note:'', apprNote:'', comments:(t.comments||[]).map(c=>({...c, text:'●●●'})), masked:true} : t;
+const withMask = fn => { if (!maskMe()) return fn(); const real = TASKS; TASKS = TASKS.map(maskT); try { return fn(); } finally { TASKS = real; } };
+function render(){ if (S.screen!=='app') return render0(); withMask(render0); }
+function render0(){
   /* ログイン画面は固定（画面ごと動かない）。名前が多くて入りきらない画面だけ、中で上下に動く */
   document.body.classList.toggle('login-lock', S.screen==='login');
   document.body.classList.toggle('login-scroll', S.screen==='login' && S.loginStep!==0);
@@ -2432,6 +2447,9 @@ document.addEventListener('click', e=>{
   /* ほかの端末で消されたタスクのボタンを押した時は、エラーにせず知らせて、画面を新しくする */
   if (['like','save','take','done','undo','start','seen','reqok','reqno','cmt','edit','addcmt','tcsend','apok','apng','apngsend'].some(k=>d[k] && !find(d[k])) || (d.savetask && !find(d.savetask)) || (d.sendto && d.task && !find(d.task))){
     closeSheet(); render(); toast('このタスクは削除されたため、操作できません'); return; }
+  /* スーパー管理者：伏字のタスクは開けない・操作できない */
+  if (maskMe() && (['like','save','take','done','undo','start','seen','reqok','reqno','cmt','edit','addcmt','tcsend','apok','apng','apngsend','open','detail','share','menu','askdel','del','savetask'].some(k=>d[k] && isMasked(find(d[k]))) || (d.task && isMasked(find(d.task))))){
+    toast('シークレット・役員のみのタスクは、中身を見られません'); return; }
   if (lastView) lastView.v.y = window.scrollY;
   if (d.coi!==undefined && !el.dataset.go){ el.dataset.go = '1'; setTimeout(()=>{ el.click(); }, 260); return; }
   if (d.coi!==undefined){ if (!meIsExec()) return; const x = d.coi==='x' || d.coi==='b'; S.scope = x ? d.coi : +d.coi; if (!x) S.coi = +d.coi; S.view = 'home'; render(); window.scrollTo(0,0); toast(x ? `${scopeName()}だけを見ています` : `${COMPANIES[S.scope].name}として見ています`); return; }
@@ -2455,7 +2473,8 @@ document.addEventListener('click', e=>{
       setTimeout(()=>{ if (S.view==='list' && !document.getElementById('scrim')) detailSheet(t.id); }, 650); }, 30); return; }
   if (d.act==='pushon'){ pushOn(); return; }
   if (d.act==='pushoff'){ pushOff(); toast('この端末への通知を止めました'); return; }
-  if (d.act==='notif'){ const on = !notifOn(); notifSet(on); if (!on && pushSubd) pushOff(); render(); toast(on ? '通知をオンにしました' : '通知をオフにしました'); return; }
+  if (d.act==='ntset'){ ntSheet(); return; }
+  if (d.act==='notif'){ const on = !notifOn(); notifSet(on); render(); ntRefresh(); toast(on ? '♡ に赤い数字を出します' : '♡ に赤い数字を出さないようにしました'); return; }
   if (d.like){ const t = find(d.like); t.likedBy = t.likedBy || []; const on = t.likedBy.includes(S.me);
     t.likedBy = on ? t.likedBy.filter(x=>x!==S.me) : t.likedBy.concat(S.me); t.likes += on ? -1 : 1; t.likeAt = {...(t.likeAt||{})}; if (on) delete t.likeAt[S.me]; else t.likeAt[S.me] = Date.now(); noteLike(t.id, !on, t.likeAt[S.me]); if (!on) pushTo([t.owner, t.taker], `${myNm()}さんが「${tNm(t)}」にいいねしました`, 'like-'+t.id); save(); render(); popBtn(`[data-like="${t.id}"]`, !on, 'heart'); return; }
   if (d.save){ const t = find(d.save); t.savedBy = (t.savedBy||[]).includes(S.me) ? t.savedBy.filter(x=>x!==S.me) : (t.savedBy||[]).concat(S.me); save(); render(); popBtn(`[data-save="${t.id}"]`, isSaved(t), 'mark'); toast(isSaved(t)?'注目に入れました':'注目から外しました'); return; }
@@ -2539,10 +2558,10 @@ document.addEventListener('click', e=>{
   if (d.pick!==undefined){ S.pick = d.pick && S.pick!==d.pick ? d.pick : null; render(); return; }
   if (d.mytab){ S.view='my'; S.myTab = d.mytab; render(); return; }
   if (d.pftab){ S.pfTab = d.pftab; render(); return; }
-  if (d.likes){ const p = E(d.likes), list = tasksOf(p).filter(t=>t.likes>0).sort((x,y)=>y.likes-x.likes);
+  if (d.likes){ withMask(()=>{ const p = E(d.likes), list = tasksOf(p).filter(t=>t.likes>0).sort((x,y)=>y.likes-x.likes);
     sheet(`${head(`${esc(p.name)}さんへのいいね`)}<p style="margin:0;color:var(--ink3);font-size:13px">いいねが付いたタスク ${list.length}件・合計 ${likesOf(p)}</p>
       <div class="lst" style="margin:0">${list.map(t=>{ const st = STATUS[stOf(t)], who = (t.likedBy||[]).map(E).filter(Boolean);
-        return `<button class="row" data-open="${t.id}"><span class="lk-n">♥ ${t.likes}</span><span class="t"><b>${esc(t.title)}</b><small>${st.l}${who.length?`・${who.map(x=>esc(x.name)).join('、')}${t.likes>who.length?` ほか${t.likes-who.length}人`:''}`:''}</small></span></button>`; }).join('') || '<p class="empty">まだいいねはありません</p>'}</div>`); return; }
+        return `<button class="row" data-open="${t.id}"><span class="lk-n">♥ ${t.likes}</span><span class="t"><b>${esc(t.title)}</b><small>${st.l}${who.length?`・${who.map(x=>esc(x.name)).join('、')}${t.likes>who.length?` ほか${t.likes-who.length}人`:''}`:''}</small></span></button>`; }).join('') || '<p class="empty">まだいいねはありません</p>'}</div>`); }); return; }
   if (d.act==='foot'){ const list = (FOOT[S.me]||[]);
     sheet(`${head('足あと')}<p style="margin:0;color:var(--ink3);font-size:13px">あなたのページを見に来た人です（新しい順・最大${FOOT_MAX}件）。見られるのはあなただけです。</p>
       <div class="lst" style="margin:0">${list.map(f=>{ const p = E(f.by); return p ? `<button class="row" data-prof="${p.id}">${av(p,'s40')}<span class="t"><b>${esc(p.name)}</b><small>${esc(roleText(p))}</small></span><small class="num ft-at">${dt(f.at)}</small></button>` : ''; }).join('') || '<p class="empty">まだ足あとはありません</p>'}</div>`); return; }
@@ -3310,21 +3329,21 @@ async function pushOn(){ if (pushBusy) return; const st = pushState();
     if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:u8(VAPID_PUB)});
     pushSave(sub); pushSubd = true; toast('この端末に通知が届くようになりました');
   } catch(e){ toast('通知をオンにできませんでした。時間をおいてもう一度ためしてください'); }
-  finally { pushBusy = false; render(); } }
+  finally { pushBusy = false; render(); ntRefresh(); } }
 async function pushOff(){ try { const reg = swReg || await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription();
-    if (sub){ pushDrop(sub); await sub.unsubscribe(); } } catch(e){} pushSubd = false; render(); }
+    if (sub){ pushDrop(sub); await sub.unsubscribe(); } } catch(e){} pushSubd = false; render(); ntRefresh(); }
 /* 開いた時：すでに受け取る設定なら、いまログインしている人の端末として登録しなおす */
 if (pushCan()) navigator.serviceWorker.register('sw.js').then(async reg=>{ swReg = reg; const sub = await reg.pushManager.getSubscription();
   pushSubd = !!sub && Notification.permission==='granted';
   if (pushSubd){ const again = () => { if (DBX && S.me) pushSave(sub); else setTimeout(again, 1500); }; again(); }
-  if (S.view==='act') render(); }).catch(()=>{});
+  if (S.view==='act') render(); ntRefresh(); }).catch(()=>{});
 /* 通知を押して開いた時は、その中身へ（通知の印 tag で決める）。見つからない時は、お知らせの画面へ
    cm・like・take・done・to・apok・apng＝そのタスク／req・sec＝マイページの「依頼」／ap＝ホームの確認待ち／scm・slk＝自分のストーリー */
 const goTag = tag => { const m = /^([a-z]+)-(.+)$/.exec(tag || ''); if (!m) return false; const k = m[1], id = m[2], t = TASKS.find(x=>x.id===id);
   if (k==='scm' || k==='slk'){ const x = stLive().find(y=>y.id===id); if (!x || !stOfP(x.by).length) return false; closeSheet(); S.view = 'home'; render(); window.scrollTo(0,0); stOpen(x.by); return true; }
   if (k==='ap'){ if (!meIsExec()) return false; closeSheet(); S.view = 'home'; render(); window.scrollTo(0,0); return true; }
   if ((k==='req' || k==='sec') && (id==='new' || (t && t.req==='pending'))){ if (id!=='new' && !canSee(t)) return false; closeSheet(); S.view = 'my'; S.myTab = 'req'; render(); window.scrollTo(0,0); return true; }
-  if (!t || !canSee(t)) return false; closeSheet(); S.lp = null; S.lf = 'all'; S.view = 'list'; render(); window.scrollTo(0,0); detailSheet(t.id); return true; };
+  if (!t || !canSee(t) || isMasked(t)) return false; closeSheet(); S.lp = null; S.lf = 'all'; S.view = 'list'; render(); window.scrollTo(0,0); detailSheet(t.id); return true; };
 /* まだ中身が届いていない時は、お知らせを出して、少し待ってからもう一度さがす */
 const goNow = tag => { if (goTag(tag)) return; closeSheet(); S.view = 'act'; render(); window.scrollTo(0,0); if (!tag) return;
   let n = 0; const again = () => { if (++n > 8 || S.view!=='act' || document.getElementById('scrim') || document.querySelector('.sv,.sc')) return; if (!goTag(tag)) setTimeout(again, 800); }; setTimeout(again, 800); };
