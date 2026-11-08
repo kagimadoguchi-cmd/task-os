@@ -991,6 +991,14 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stro
 .menu button{border:0;border-top:1px solid var(--line);background:none;padding:14px;font-weight:700}
 .menu button:first-child{border-top:0}
 .menu .red{color:var(--late)}
+/* 担当者の管理シート */
+.pm-top{display:flex;align-items:center;gap:12px}
+.pm-tt{display:flex;flex-direction:column;gap:2px;min-width:0}.pm-tt b{font-size:16px}.pm-tt small{font-size:12px;color:var(--ink3)}
+.pm-info{margin:0;display:grid;grid-template-columns:auto 1fr;gap:10px 16px;align-items:baseline;font-size:14px;background:var(--sub);border-radius:12px;padding:12px 14px}
+.pm-info dt{color:var(--ink3);font-size:12px;font-weight:700;white-space:nowrap}.pm-info dd{margin:0;overflow-wrap:anywhere}.pm-info dd.none{color:var(--ink3)}.pm-ng{color:var(--late);font-weight:700}
+.pm-menu{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pm-menu button{display:flex;align-items:center;width:100%;text-align:left;padding:14px 16px;font-size:15px;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.pm-menu button:active{background:var(--sub)}
 .cm{display:flex;gap:10px;align-items:flex-start}
 .cm p{margin:0;font-size:14px;white-space:pre-wrap;word-break:break-word}
 .cm small{color:var(--ink3);font-size:12px}
@@ -2567,10 +2575,11 @@ document.addEventListener('click', e=>{
   if (d.act==='back'){ goBack(); return; }
   if (d.act==='logout'){ if ((E(S.me)||{}).biz!=='sys') return; if (pushSubd) pushOff(); sessClear(); appBadge(0); S.scope = null; HIST.length = 0; lastView = null; closeSheet(); S.me=null; S.screen='login'; S.loginStep=0; render(); window.scrollTo(0,0); return; }
   if (d.role){ roleSheet(d.role); return; }
-  if (d.pman){ const p = E(d.pman); sheet(`${head(esc(p.name)+'さん')}<p style="margin:0;color:var(--ink3)">${esc(roleText(p))}・${p.reg?'登録済み':'未登録'}${isBlocked(p)?'・ログイン不可':''}</p>
-      <p style="margin:0;color:var(--ink3);font-size:13px">メール：${p.email?esc(p.email):'<span style="color:var(--ink3)">まだ登録なし</span>'}</p>
-      <div class="btns"><button class="btn ghost" data-role="${p.id}">役職を変える</button><button class="btn ghost" data-mail="${p.id}">メールアドレス</button>${p.reg?`<button class="btn ghost" data-reset="${p.id}">パスワードをリセット</button>`:''}</div>
-      ${meIsExec() && p.id!==S.me ? `<div class="btns"><button class="btn red" data-askdel="${p.id}">この人を削除する</button></div>` : ''}`); return; }
+  /* 担当者の管理（名前を押したとき）：上に顔と役職、まん中に登録状況の表、下に操作のメニュー（縦ならび） */
+  if (d.pman){ const p = E(d.pman); sheet(`${head(esc(p.name)+'さん')}
+      <div class="pm-top">${av(p,'s44')}<div class="pm-tt"><b>${esc(roleText(p))}</b><small>${esc(B(p.biz).short)}${p.area && p.area!==B(p.biz).name ? '・'+esc(p.area) : ''}</small></div></div>
+      <dl class="pm-info"><dt>ログイン</dt><dd>${p.reg?'パスワード登録済み':'まだ未登録'}${isBlocked(p)?'<span class="pm-ng">・ログイン不可</span>':''}</dd><dt>メール</dt><dd class="${p.email?'':'none'}">${p.email?esc(p.email):'まだ登録なし'}</dd></dl>
+      <div class="menu pm-menu"><button data-role="${p.id}">役職を変える</button><button data-mail="${p.id}">メールアドレスを${p.email?'変える':'登録する'}</button>${p.reg?`<button data-reset="${p.id}">パスワードをリセット</button>`:''}${meIsExec() && p.id!==S.me ? `<button class="red" data-askdel="${p.id}">この人を削除する</button>` : ''}</div>`); return; }
   /* 担当者の削除（退職など）：役員だけ。押すと確認を出し、「削除する」で消す */
   if (d.askdel){ if (!meIsExec() || d.askdel===S.me) return; const p = E(d.askdel), open = TASKS.filter(t=>t.taker===p.id && t.status!=='done').length;
     sheet(`${head('本当に削除しますか？')}<div class="warn-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><p><b>${esc(p.name)}さん</b>を担当者から削除します。ログインできなくなり、事業・エリアの一覧からも消えます。<br>${open ? `いま受けているタスク <b>${open}件</b> は「担当なし」にもどします。` : ''}終わったタスクやコメントの名前はそのまま残ります。<br><b>元には戻せません。</b>退職などで使わなくなった人にだけ使ってください。</p></div>
